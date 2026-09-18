@@ -23,6 +23,9 @@ import {
   Vendor,
   PurchaseOrder,
   PurchaseItem,
+  PurchaseLineItem,
+  PurchaseDeliveryReceipt,
+  DeliveryReceiptItem,
   BillOfMaterials,
   BOMItem,
   SalesInvoice,
@@ -1643,11 +1646,16 @@ const initialPurchaseOrders: PurchaseOrder[] = [
         productName: 'Waaree 540Wp Mono PERC Bifacial Solar PV Module',
         sku: 'MOD-WAA-540',
         category: 'Solar Panels',
-        quantity: 200,
+        orderedQuantity: 200,
+        receivedQuantity: 200,
+        pendingQuantity: 0,
         unit: 'NOS',
         unitPrice: 10200,
-        taxRatePercent: 12,
+        taxPercent: 12,
         taxAmount: 244800,
+        totalAmount: 2284800,
+        quantity: 200,
+        taxRatePercent: 12,
         totalPrice: 2284800
       }
     ],
@@ -1660,6 +1668,28 @@ const initialPurchaseOrders: PurchaseOrder[] = [
     invoiceReference: 'WAA-INV-88910',
     notes: 'Dispatched directly to ABC Industries site in Sanand. Site survey verified.',
     stockUpdated: true,
+    deliveryReceipts: [
+      {
+        id: 'grn-po1-1',
+        receiptNumber: 'GRN-2026-001',
+        receiptDate: '2026-08-18',
+        deliveryChallanNo: 'DC-WAA-9921',
+        transporterName: 'VRL Logistics (GJ-01-AX-9912)',
+        receivedBy: 'Ramesh Patel (Store Incharge)',
+        notes: 'Complete batch received in excellent condition. Test certificates verified.',
+        createdAt: '2026-08-18T14:30:00Z',
+        items: [
+          {
+            lineItemId: 'poi-1',
+            productId: 'prod-1',
+            productName: 'Waaree 540Wp Mono PERC Bifacial Solar PV Module',
+            sku: 'MOD-WAA-540',
+            unit: 'NOS',
+            receivedQuantity: 200
+          }
+        ]
+      }
+    ],
     createdAt: '2026-08-10T10:00:00Z',
     updatedAt: '2026-08-18T16:00:00Z'
   },
@@ -1680,11 +1710,16 @@ const initialPurchaseOrders: PurchaseOrder[] = [
         productName: 'Sungrow 110kW String Inverter SG110CX',
         sku: 'INV-SUN-110',
         category: 'Inverters',
-        quantity: 2,
+        orderedQuantity: 2,
+        receivedQuantity: 2,
+        pendingQuantity: 0,
         unit: 'NOS',
         unitPrice: 285000,
-        taxRatePercent: 12,
+        taxPercent: 12,
         taxAmount: 68400,
+        totalAmount: 638400,
+        quantity: 2,
+        taxRatePercent: 12,
         totalPrice: 638400
       }
     ],
@@ -1697,6 +1732,28 @@ const initialPurchaseOrders: PurchaseOrder[] = [
     invoiceReference: 'SUNG-INV-3321',
     notes: 'Includes manufacturer warranty certificates and Wi-Fi dongles.',
     stockUpdated: true,
+    deliveryReceipts: [
+      {
+        id: 'grn-po2-1',
+        receiptNumber: 'GRN-2026-002',
+        receiptDate: '2026-08-20',
+        deliveryChallanNo: 'DC-SUN-4410',
+        transporterName: 'Safexpress',
+        receivedBy: 'Ramesh Patel',
+        notes: 'Both inverters unboxed and inspected.',
+        createdAt: '2026-08-20T16:00:00Z',
+        items: [
+          {
+            lineItemId: 'poi-2',
+            productId: 'prod-3',
+            productName: 'Sungrow 110kW String Inverter SG110CX',
+            sku: 'INV-SUN-110',
+            unit: 'NOS',
+            receivedQuantity: 2
+          }
+        ]
+      }
+    ],
     createdAt: '2026-08-12T11:30:00Z',
     updatedAt: '2026-08-20T17:00:00Z'
   },
@@ -1716,11 +1773,16 @@ const initialPurchaseOrders: PurchaseOrder[] = [
         productName: 'Polycab 1C x 4 sq.mm Solar DC Cable (Red)',
         sku: 'CAB-DC-4R',
         category: 'Electrical & Cables',
-        quantity: 1000,
+        orderedQuantity: 1000,
+        receivedQuantity: 0,
+        pendingQuantity: 1000,
         unit: 'METERS',
         unitPrice: 46,
-        taxRatePercent: 18,
+        taxPercent: 18,
         taxAmount: 8280,
+        totalAmount: 54280,
+        quantity: 1000,
+        taxRatePercent: 18,
         totalPrice: 54280
       },
       {
@@ -1729,11 +1791,16 @@ const initialPurchaseOrders: PurchaseOrder[] = [
         productName: 'Polycab 1C x 4 sq.mm Solar DC Cable (Black)',
         sku: 'CAB-DC-4B',
         category: 'Electrical & Cables',
-        quantity: 1000,
+        orderedQuantity: 1000,
+        receivedQuantity: 0,
+        pendingQuantity: 1000,
         unit: 'METERS',
         unitPrice: 46,
-        taxRatePercent: 18,
+        taxPercent: 18,
         taxAmount: 8280,
+        totalAmount: 54280,
+        quantity: 1000,
+        taxRatePercent: 18,
         totalPrice: 54280
       }
     ],
@@ -1745,8 +1812,73 @@ const initialPurchaseOrders: PurchaseOrder[] = [
     paymentDueDate: '2026-10-05',
     notes: 'Delivery expected at central warehouse for string distribution.',
     stockUpdated: false,
+    deliveryReceipts: [],
     createdAt: '2026-09-05T14:00:00Z',
     updatedAt: '2026-09-05T14:00:00Z'
+  },
+  {
+    id: 'po-4',
+    purchaseNumber: 'PO-2026-004',
+    vendorId: 'vnd-1',
+    vendorName: 'Waaree Energies Limited',
+    purchaseDate: '2026-09-10',
+    expectedDeliveryDate: '2026-09-25',
+    projectId: 'proj-2',
+    projectTitle: '50 kW Solar PV Project - Sunrise Textiles',
+    items: [
+      {
+        id: 'poi-5',
+        productId: 'prod-1',
+        productName: 'Waaree 540Wp Mono PERC Bifacial Solar PV Module',
+        sku: 'MOD-WAA-540',
+        category: 'Solar Panels',
+        orderedQuantity: 92,
+        receivedQuantity: 50,
+        pendingQuantity: 42,
+        unit: 'NOS',
+        unitPrice: 10200,
+        taxPercent: 12,
+        taxAmount: 112608,
+        totalAmount: 1051008,
+        quantity: 92,
+        taxRatePercent: 12,
+        totalPrice: 1051008,
+        notes: 'First dispatch of 50 received. 42 pending from factory.'
+      }
+    ],
+    subtotal: 938400,
+    taxAmount: 112608,
+    totalAmount: 1051008,
+    status: 'PARTIALLY_RECEIVED',
+    paymentStatus: 'PARTIALLY_PAID',
+    paymentDueDate: '2026-10-15',
+    invoiceReference: 'WAA-INV-99014',
+    notes: 'Partial batch shipped due to trailer space limits. Balance 42 modules scheduled for next week.',
+    stockUpdated: true,
+    deliveryReceipts: [
+      {
+        id: 'grn-po4-1',
+        receiptNumber: 'GRN-2026-003',
+        receiptDate: '2026-09-15',
+        deliveryChallanNo: 'DC-WAA-1048',
+        transporterName: 'GATI KWE (MH-04-DE-4122)',
+        receivedBy: 'Ramesh Patel (Store Incharge)',
+        notes: 'Initial lot of 50 panels verified against barcode list.',
+        createdAt: '2026-09-15T11:00:00Z',
+        items: [
+          {
+            lineItemId: 'poi-5',
+            productId: 'prod-1',
+            productName: 'Waaree 540Wp Mono PERC Bifacial Solar PV Module',
+            sku: 'MOD-WAA-540',
+            unit: 'NOS',
+            receivedQuantity: 50
+          }
+        ]
+      }
+    ],
+    createdAt: '2026-09-10T09:30:00Z',
+    updatedAt: '2026-09-15T11:30:00Z'
   }
 ];
 
@@ -2953,47 +3085,110 @@ class StorageService {
   // Purchase Entry & Purchase Orders
   // ==========================================
   getPurchaseOrders(): PurchaseOrder[] {
-    return this.get<PurchaseOrder[]>(STORAGE_KEYS.PURCHASE_ORDERS, initialPurchaseOrders);
+    const orders = this.get<PurchaseOrder[]>(STORAGE_KEYS.PURCHASE_ORDERS, initialPurchaseOrders);
+    return orders.map(order => {
+      const items: PurchaseLineItem[] = (order.items || []).map((item, idx) => {
+        const orderedQty = Math.max(0, Number(item.orderedQuantity ?? item.quantity ?? 0));
+        let receivedQty = Math.max(0, Number(item.receivedQuantity ?? 0));
+        if (item.receivedQuantity === undefined && (order.status === 'RECEIVED' || order.stockUpdated)) {
+          receivedQty = orderedQty;
+        }
+        const pendingQty = Math.max(0, Number(item.pendingQuantity ?? Math.max(0, orderedQty - receivedQty)));
+        const rejectedQty = Math.max(0, Number(item.rejectedQuantity ?? 0));
+        const unitPrice = Math.max(0, Number(item.unitPrice || 0));
+        const taxPercent = Math.max(0, Number(item.taxPercent ?? item.taxRatePercent ?? 12));
+        const taxAmount = Math.round((orderedQty * unitPrice * taxPercent) / 100);
+        const totalAmount = (orderedQty * unitPrice) + taxAmount;
+
+        return {
+          ...item,
+          id: item.id || `poi-${order.id}-${idx}`,
+          orderedQuantity: orderedQty,
+          receivedQuantity: receivedQty,
+          pendingQuantity: pendingQty,
+          rejectedQuantity: rejectedQty,
+          unitPrice,
+          taxPercent,
+          taxAmount,
+          totalAmount,
+          quantity: orderedQty,
+          taxRatePercent: taxPercent,
+          totalPrice: totalAmount
+        };
+      });
+
+      return {
+        ...order,
+        items,
+        deliveryReceipts: order.deliveryReceipts || []
+      };
+    });
   }
 
-  savePurchaseOrder(order: PurchaseOrder, autoSyncStock: boolean = true, performedBy: string = 'Purchase Manager'): void {
+  savePurchaseOrder(order: PurchaseOrder, _autoSyncStock: boolean = false, _performedBy: string = 'Purchase Manager'): void {
     const orders = this.getPurchaseOrders();
     const idx = orders.findIndex(o => o.id === order.id);
-    const existing = idx >= 0 ? orders[idx] : null;
 
-    let updatedOrder = { ...order, updatedAt: new Date().toISOString() };
+    // Compute accurate line-item totals and derived quantities
+    const items: PurchaseLineItem[] = (order.items || []).map((item, i) => {
+      const orderedQty = Math.max(0, Number(item.orderedQuantity ?? item.quantity ?? 0));
+      const receivedQty = Math.max(0, Number(item.receivedQuantity ?? 0));
+      const pendingQty = Math.max(0, orderedQty - receivedQty);
+      const rejectedQty = Math.max(0, Number(item.rejectedQuantity ?? 0));
+      const unitPrice = Math.max(0, Number(item.unitPrice || 0));
+      const taxPercent = Math.max(0, Number(item.taxPercent ?? item.taxRatePercent ?? 12));
+      const taxAmount = Math.round((orderedQty * unitPrice * taxPercent) / 100);
+      const totalAmount = (orderedQty * unitPrice) + taxAmount;
+
+      return {
+        ...item,
+        id: item.id || `poi-${Date.now()}-${i}`,
+        orderedQuantity: orderedQty,
+        receivedQuantity: receivedQty,
+        pendingQuantity: pendingQty,
+        rejectedQuantity: rejectedQty,
+        unitPrice,
+        taxPercent,
+        taxAmount,
+        totalAmount,
+        quantity: orderedQty,
+        taxRatePercent: taxPercent,
+        totalPrice: totalAmount
+      };
+    });
+
+    const subtotal = items.reduce((sum, it) => sum + (it.orderedQuantity * it.unitPrice), 0);
+    const taxAmount = items.reduce((sum, it) => sum + it.taxAmount, 0);
+    const totalAmount = subtotal + taxAmount;
+
+    // Determine accurate status based on received vs ordered
+    let status = order.status;
+    if (status !== 'CANCELLED' && status !== 'DRAFT') {
+      const allReceived = items.length > 0 && items.every(it => it.receivedQuantity >= it.orderedQuantity);
+      const anyReceived = items.some(it => it.receivedQuantity > 0);
+      if (allReceived) {
+        status = 'RECEIVED';
+      } else if (anyReceived) {
+        status = 'PARTIALLY_RECEIVED';
+      } else {
+        status = 'ORDERED';
+      }
+    }
+
+    const updatedOrder: PurchaseOrder = {
+      ...order,
+      items,
+      subtotal,
+      taxAmount,
+      totalAmount,
+      status,
+      deliveryReceipts: order.deliveryReceipts || [],
+      updatedAt: new Date().toISOString()
+    };
+
     if (!updatedOrder.id) {
       updatedOrder.id = `po-${Date.now()}`;
       updatedOrder.createdAt = new Date().toISOString();
-    }
-
-    // Check if status changed to RECEIVED and stock has not been updated yet
-    const shouldReceiveStock = autoSyncStock && updatedOrder.status === 'RECEIVED' && (!existing || !existing.stockUpdated);
-
-    if (shouldReceiveStock) {
-      const products = this.getProducts();
-      updatedOrder.items.forEach(item => {
-        let prod = products.find(p => p.id === item.productId || p.sku === item.sku);
-        if (prod) {
-          prod.currentStock += item.quantity;
-          prod.updatedAt = new Date().toISOString();
-          this.addStockMovement({
-            productId: prod.id,
-            productName: prod.name,
-            sku: prod.sku,
-            movementType: 'PURCHASE_RECEIPT',
-            quantity: item.quantity,
-            balanceAfter: prod.currentStock,
-            referenceId: updatedOrder.id,
-            referenceNumber: updatedOrder.purchaseNumber,
-            notes: `Goods Receipt from ${updatedOrder.vendorName}`,
-            performedBy
-          });
-        }
-      });
-      this.set(STORAGE_KEYS.PRODUCTS, products);
-      updatedOrder.stockUpdated = true;
-      updatedOrder.receivedDate = updatedOrder.receivedDate || new Date().toISOString().slice(0, 10);
     }
 
     if (idx >= 0) {
@@ -3004,41 +3199,154 @@ class StorageService {
     this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
   }
 
-  receivePurchaseOrder(id: string, performedBy: string = 'Store Incharge'): void {
+  recordPurchaseReceipt(
+    orderId: string,
+    receiptInput: {
+      receiptDate: string;
+      deliveryChallanNo?: string;
+      transporterName?: string;
+      receivedBy: string;
+      notes?: string;
+      items: {
+        lineItemId: string;
+        receivedQuantity: number;
+        rejectedQuantity?: number;
+        rejectionReason?: string;
+        isExcessApproved?: boolean;
+        excessApprovalReason?: string;
+      }[];
+    },
+    performedBy: string = 'Store Incharge'
+  ): PurchaseOrder | null {
     const orders = this.getPurchaseOrders();
-    const order = orders.find(o => o.id === id);
-    if (!order) return;
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return null;
 
-    order.status = 'RECEIVED';
-    order.receivedDate = new Date().toISOString().slice(0, 10);
+    const products = this.getProducts();
+    const receiptId = `grn-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const receiptNumber = `GRN-${new Date().getFullYear()}-${String((order.deliveryReceipts?.length || 0) + 1).padStart(3, '0')}`;
 
-    if (!order.stockUpdated) {
-      const products = this.getProducts();
-      order.items.forEach(item => {
-        const prod = products.find(p => p.id === item.productId || p.sku === item.sku);
+    const receiptItems: DeliveryReceiptItem[] = [];
+
+    receiptInput.items.forEach(inputItem => {
+      const lineItem = order.items.find(it => it.id === inputItem.lineItemId);
+      if (!lineItem) return;
+
+      const arrivingQty = Math.max(0, Number(inputItem.receivedQuantity || 0));
+      const rejectedQty = Math.max(0, Number(inputItem.rejectedQuantity || 0));
+
+      if (arrivingQty > 0 || rejectedQty > 0) {
+        receiptItems.push({
+          lineItemId: lineItem.id,
+          productId: lineItem.productId,
+          productName: lineItem.productName,
+          sku: lineItem.sku,
+          unit: lineItem.unit,
+          receivedQuantity: arrivingQty,
+          rejectedQuantity: rejectedQty,
+          rejectionReason: inputItem.rejectionReason,
+          isExcessApproved: inputItem.isExcessApproved,
+          excessApprovalReason: inputItem.excessApprovalReason
+        });
+      }
+
+      // Increase stock in warehouse ONLY for arrivingQty
+      if (arrivingQty > 0) {
+        const prod = products.find(p => p.id === lineItem.productId || p.sku === lineItem.sku);
         if (prod) {
-          prod.currentStock += item.quantity;
+          prod.currentStock += arrivingQty;
           prod.updatedAt = new Date().toISOString();
           this.addStockMovement({
             productId: prod.id,
             productName: prod.name,
             sku: prod.sku,
             movementType: 'PURCHASE_RECEIPT',
-            quantity: item.quantity,
+            quantity: arrivingQty,
             balanceAfter: prod.currentStock,
             referenceId: order.id,
             referenceNumber: order.purchaseNumber,
-            notes: `Goods received against PO from ${order.vendorName}`,
-            performedBy
+            notes: `Goods Receipt ${receiptNumber}${receiptInput.deliveryChallanNo ? ' (DC: ' + receiptInput.deliveryChallanNo + ')' : ''} from ${order.vendorName}`,
+            performedBy: performedBy || receiptInput.receivedBy
           });
         }
-      });
-      this.set(STORAGE_KEYS.PRODUCTS, products);
-      order.stockUpdated = true;
+      }
+
+      // Update line item accumulators
+      lineItem.receivedQuantity = (lineItem.receivedQuantity || 0) + arrivingQty;
+      lineItem.rejectedQuantity = (lineItem.rejectedQuantity || 0) + rejectedQty;
+      lineItem.pendingQuantity = Math.max(0, lineItem.orderedQuantity - lineItem.receivedQuantity);
+      lineItem.quantity = lineItem.orderedQuantity;
+    });
+
+    // Save updated products to storage
+    this.set(STORAGE_KEYS.PRODUCTS, products);
+
+    // Create the receipt record
+    const newReceipt: PurchaseDeliveryReceipt = {
+      id: receiptId,
+      receiptNumber,
+      receiptDate: receiptInput.receiptDate || new Date().toISOString().slice(0, 10),
+      deliveryChallanNo: receiptInput.deliveryChallanNo,
+      transporterName: receiptInput.transporterName,
+      receivedBy: receiptInput.receivedBy || performedBy,
+      notes: receiptInput.notes,
+      items: receiptItems,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!order.deliveryReceipts) {
+      order.deliveryReceipts = [];
+    }
+    order.deliveryReceipts.unshift(newReceipt);
+
+    // Determine updated order status
+    const allReceived = order.items.length > 0 && order.items.every(it => it.receivedQuantity >= it.orderedQuantity);
+    const anyReceived = order.items.some(it => it.receivedQuantity > 0);
+
+    if (allReceived) {
+      order.status = 'RECEIVED';
+      order.receivedDate = receiptInput.receiptDate || new Date().toISOString().slice(0, 10);
+    } else if (anyReceived) {
+      order.status = 'PARTIALLY_RECEIVED';
     }
 
+    order.stockUpdated = anyReceived;
     order.updatedAt = new Date().toISOString();
+
     this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
+    return order;
+  }
+
+  receivePurchaseOrder(id: string, performedBy: string = 'Store Incharge'): void {
+    const orders = this.getPurchaseOrders();
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+
+    // Collect all pending items to receive
+    const pendingItemsToReceive = order.items.map(it => ({
+      lineItemId: it.id,
+      receivedQuantity: it.pendingQuantity > 0 ? it.pendingQuantity : (it.receivedQuantity === 0 ? it.orderedQuantity : 0),
+      rejectedQuantity: 0
+    })).filter(it => it.receivedQuantity > 0);
+
+    if (pendingItemsToReceive.length > 0) {
+      this.recordPurchaseReceipt(
+        id,
+        {
+          receiptDate: new Date().toISOString().slice(0, 10),
+          deliveryChallanNo: order.invoiceReference || 'Direct Delivery',
+          receivedBy: performedBy,
+          notes: 'Full goods delivery receipt recorded',
+          items: pendingItemsToReceive
+        },
+        performedBy
+      );
+    } else {
+      order.status = 'RECEIVED';
+      order.stockUpdated = true;
+      order.updatedAt = new Date().toISOString();
+      this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
+    }
   }
 
   deletePurchaseOrder(id: string): void {

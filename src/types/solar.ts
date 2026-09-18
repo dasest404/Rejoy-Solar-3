@@ -605,23 +605,69 @@ export interface Vendor {
   updatedAt: string;
 }
 
-export interface PurchaseItem {
+export interface PurchaseLineItem {
   id: string;
   productId: string;
   productName: string;
   sku: string;
-  category: ProductCategory;
-  quantity: number;
-  unit: ProductUnit;
+  category?: ProductCategory;
+  unit: string;
+
+  // Original purchase order quantity
+  orderedQuantity: number;
+
+  // Aggregate total received across all delivery receipts
+  receivedQuantity: number;
+
+  // Derived value:
+  // pendingQuantity = orderedQuantity - receivedQuantity
+  pendingQuantity: number;
+
+  // Optional tracking for rejected/damaged product
+  rejectedQuantity?: number;
+
   unitPrice: number;
-  taxRatePercent: number;
+  taxPercent: number;
   taxAmount: number;
-  totalPrice: number;
+  totalAmount: number;
+
+  notes?: string;
+
+  // Backward-compatibility properties
+  quantity?: number;
+  taxRatePercent?: number;
+  totalPrice?: number;
 }
 
-export type PurchaseOrderItem = PurchaseItem;
+export type PurchaseItem = PurchaseLineItem;
+export type PurchaseOrderItem = PurchaseLineItem;
 
-export type PurchaseStatus = 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
+export interface DeliveryReceiptItem {
+  lineItemId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  unit: string;
+  receivedQuantity: number;
+  rejectedQuantity?: number;
+  rejectionReason?: string;
+  isExcessApproved?: boolean;
+  excessApprovalReason?: string;
+}
+
+export interface PurchaseDeliveryReceipt {
+  id: string;
+  receiptNumber: string;
+  receiptDate: string;
+  deliveryChallanNo?: string;
+  transporterName?: string;
+  receivedBy: string;
+  notes?: string;
+  items: DeliveryReceiptItem[];
+  createdAt: string;
+}
+
+export type PurchaseStatus = 'DRAFT' | 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
 
 export interface PurchaseOrder {
   id: string;
@@ -633,7 +679,7 @@ export interface PurchaseOrder {
   receivedDate?: string;
   projectId?: string;
   projectTitle?: string;
-  items: PurchaseItem[];
+  items: PurchaseLineItem[];
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
@@ -643,6 +689,7 @@ export interface PurchaseOrder {
   invoiceReference?: string;
   notes?: string;
   stockUpdated: boolean;
+  deliveryReceipts?: PurchaseDeliveryReceipt[];
   createdAt: string;
   updatedAt: string;
 }

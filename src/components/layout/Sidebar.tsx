@@ -49,15 +49,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
   const navItemClass = (isActive: boolean) =>
     `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
       isActive
-        ? 'bg-amber-500 text-white shadow-xs font-semibold'
+        ? 'bg-amber-500 text-white shadow-xs'
         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
     }`;
 
   const subNavItemClass = (isActive: boolean) =>
     `w-full flex items-center justify-between pl-8 pr-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
       isActive
-        ? 'text-amber-900 bg-amber-50 font-semibold'
+        ? 'text-amber-900 bg-amber-50/80 font-semibold'
         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+    }`;
+
+  const parentNavItemClass = (isExactActive: boolean, isChildActive: boolean) =>
+    `w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer select-none ${
+      isExactActive
+        ? 'bg-amber-500 text-white shadow-xs'
+        : isChildActive
+        ? 'text-amber-900 bg-amber-50/80 font-semibold'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
     }`;
 
   return (
@@ -122,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                   onClick={() => navigateTo('customer_control_center')}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
                     activeView === 'customer_control_center'
-                      ? 'bg-amber-500 text-white shadow-xs font-semibold'
+                      ? 'bg-amber-500 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                   }`}
                 >
@@ -186,20 +195,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                       navigateTo('sales_purchase');
                       setSalesPurchaseOpen(true);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer select-none ${
-                      activeView === 'sales_purchase'
-                        ? 'bg-amber-500 text-white shadow-xs font-semibold'
-                        : [
-                            'sales_bom',
-                            'sales_invoices',
-                            'purchase_vendors',
-                            'purchase_orders',
-                            'inventory_products',
-                            'inventory_stock'
-                          ].includes(activeView)
-                        ? 'text-amber-900 bg-amber-50/70 font-semibold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                    }`}
+                    className={parentNavItemClass(
+                      activeView === 'sales_purchase',
+                      [
+                        'sales_bom',
+                        'sales_invoices',
+                        'purchase_vendors',
+                        'purchase_orders',
+                        'inventory_products',
+                        'inventory_stock'
+                      ].includes(activeView)
+                    )}
                   >
                     <div className="flex items-center gap-3">
                       <ShoppingCart className="w-4 h-4 shrink-0" />
@@ -351,11 +357,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                       if (!reportsOpen) setReportsOpen(true);
                       openReport(activeReportCategory || 'sales');
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer select-none ${
-                      activeView === 'reports'
-                        ? 'text-amber-900 bg-amber-50/70 font-semibold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                    }`}
+                    className={parentNavItemClass(
+                      activeView === 'reports',
+                      false
+                    )}
                   >
                     <div className="flex items-center gap-3">
                       <BarChart3 className="w-4 h-4 shrink-0" />

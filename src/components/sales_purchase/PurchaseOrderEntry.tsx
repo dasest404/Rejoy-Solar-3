@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
-import { PurchaseOrder, PurchaseOrderItem, Vendor, ProductItem, SolarProject } from '../../types/solar';
+import { PurchaseOrder, PurchaseLineItem, Vendor, ProductItem, SolarProject } from '../../types/solar';
 import {
   ShoppingCart,
   Plus,
@@ -18,8 +18,14 @@ import {
   DollarSign,
   Building2,
   Calendar,
-  Layers
+  Layers,
+  Edit3,
+  CheckCircle2,
+  PackageCheck
 } from 'lucide-react';
+import { GoodsReceiptModal } from './purchase_order/GoodsReceiptModal';
+import { EditPurchaseOrderModal } from './purchase_order/EditPurchaseOrderModal';
+import { PurchaseOrderSummaryModal } from './purchase_order/PurchaseOrderSummaryModal';
 
 export const PurchaseOrderEntry: React.FC = () => {
   const { refreshTrigger, triggerRefresh, showToast } = useApp();
@@ -27,10 +33,14 @@ export const PurchaseOrderEntry: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
+  const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
 
-  // Form states
+  // Form states for creating new PO
   const [formVendorId, setFormVendorId] = useState('');
   const [formProjectId, setFormProjectId] = useState('');
   const [formPurchaseDate, setFormPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
@@ -44,8 +54,8 @@ export const PurchaseOrderEntry: React.FC = () => {
   const [formInvoiceRef, setFormInvoiceRef] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
-  // Line items state
-  const [lineItems, setLineItems] = useState<Omit<PurchaseOrderItem, 'id'>[]>([]);
+  // Line items state for creating new PO
+  const [lineItems, setLineItems] = useState<PurchaseLineItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [itemQty, setItemQty] = useState<number>(10);
   const [itemUnitPrice, setItemUnitPrice] = useState<number>(0);
@@ -58,13 +68,14 @@ export const PurchaseOrderEntry: React.FC = () => {
 
   const metrics = useMemo(() => {
     const totalPurchases = orders.reduce((sum, o) => sum + o.totalAmount, 0);
-    const pendingDeliveries = orders.filter(o => o.status === 'ORDERED').length;
+    const pendingDeliveries = orders.filter(o => o.status === 'ORDERED' || o.status === 'PARTIALLY_RECEIVED').length;
+    const partialDeliveries = orders.filter(o => o.status === 'PARTIALLY_RECEIVED').length;
     const receivedOrders = orders.filter(o => o.status === 'RECEIVED').length;
     const totalPendingPayment = orders
       .filter(o => o.paymentStatus !== 'PAID')
       .reduce((sum, o) => sum + o.totalAmount, 0);
 
-    return { totalPurchases, pendingDeliveries, receivedOrders, totalPendingPayment };
+    return { totalPurchases, pendingDeliveries, partialDeliveries, receivedOrders, totalPendingPayment };
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
@@ -105,19 +116,26 @@ export const PurchaseOrderEntry: React.FC = () => {
     if (!prod) return;
 
     const baseAmount = itemQty * itemUnitPrice;
-    const taxAmt = (baseAmount * itemTaxRate) / 100;
+    const taxAmt = Math.round((baseAmount * itemTaxRate) / 100);
     const totalAmt = baseAmount + taxAmt;
 
-    const newItem: Omit<PurchaseOrderItem, 'id'> = {
+    const newItem: PurchaseLineItem = {
+      id: `poi-${Date.now()}-${lineItems.length}`,
       productId: prod.id,
       productName: prod.name,
       sku: prod.sku,
       category: prod.category,
-      quantity: itemQty,
+      orderedQuantity: itemQty,
+      receivedQuantity: 0,
+      pendingQuantity: itemQty,
+      rejectedQuantity: 0,
       unit: prod.unit,
       unitPrice: itemUnitPrice,
-      taxRatePercent: itemTaxRate,
+      taxPercent: itemTaxRate,
       taxAmount: taxAmt,
+      totalAmount: totalAmt,
+      quantity: itemQty,
+      taxRatePercent: itemTaxRate,
       totalPrice: totalAmt
     };
 
@@ -132,7 +150,7 @@ export const PurchaseOrderEntry: React.FC = () => {
   };
 
   const formSubtotal = useMemo(() => {
-    return lineItems.reduce((acc, it) => acc + it.quantity * it.unitPrice, 0);
+    return lineItems.reduce((acc, it) => acc + it.orderedQuantity * it.unitPrice, 0);
   }, [lineItems]);
 
   const formTaxTotal = useMemo(() => {
@@ -166,19 +184,17 @@ export const PurchaseOrderEntry: React.FC = () => {
       expectedDeliveryDate: formExpectedDate,
       projectId: formProjectId || undefined,
       projectTitle: project?.title || undefined,
-      items: lineItems.map((it, idx) => ({
-        ...it,
-        id: `poi-${Date.now()}-${idx}`
-      })) as PurchaseOrderItem[],
+      items: lineItems,
       subtotal: formSubtotal,
       taxAmount: formTaxTotal,
       totalAmount: formGrandTotal,
       status: 'ORDERED',
       paymentStatus: formPaymentStatus,
       paymentDueDate: formPaymentDueDate,
-      invoiceReference: formInvoiceRef,
-      notes: formNotes,
+      invoiceReference: formInvoiceRef.trim() || undefined,
+      notes: formNotes.trim() || undefined,
       stockUpdated: false,
+      deliveryReceipts: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -193,16 +209,7 @@ export const PurchaseOrderEntry: React.FC = () => {
     setFormProjectId('');
     setLineItems([]);
     setFormNotes('');
-  };
-
-  // 1-Click Receive Goods & Synchronize Stock
-  const handleReceiveGoods = (order: PurchaseOrder) => {
-    storageService.receivePurchaseOrder(order.id, currentUser?.name || 'Store Incharge');
-    triggerRefresh();
-    showToast(
-      `Goods Received! Added quantities for ${order.items.length} items to Warehouse inventory`,
-      'success'
-    );
+    setFormInvoiceRef('');
   };
 
   const handleDeletePO = (id: string, poNum: string) => {
@@ -210,6 +217,20 @@ export const PurchaseOrderEntry: React.FC = () => {
       storageService.deletePurchaseOrder(id);
       triggerRefresh();
       showToast(`Purchase Order ${poNum} deleted`, 'info');
+    }
+  };
+
+  const handleOrderSavedFromModal = (updated: PurchaseOrder) => {
+    triggerRefresh();
+    if (viewingPO?.id === updated.id) {
+      setViewingPO(updated);
+    }
+  };
+
+  const handleReceiptRecordedFromModal = (updated: PurchaseOrder) => {
+    triggerRefresh();
+    if (viewingPO?.id === updated.id) {
+      setViewingPO(updated);
     }
   };
 
@@ -237,7 +258,7 @@ export const PurchaseOrderEntry: React.FC = () => {
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Deliveries In Transit
+              Deliveries In Inflow
             </span>
             <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
               <Truck className="w-4 h-4" />
@@ -247,7 +268,7 @@ export const PurchaseOrderEntry: React.FC = () => {
             {metrics.pendingDeliveries} Orders
           </div>
           <span className="text-[11px] text-blue-600 font-semibold mt-1 block">
-            Pending physical site receipt
+            {metrics.partialDeliveries > 0 ? `${metrics.partialDeliveries} partially delivered` : 'Awaiting physical delivery'}
           </span>
         </div>
 
@@ -261,10 +282,10 @@ export const PurchaseOrderEntry: React.FC = () => {
             </div>
           </div>
           <div className="text-xl font-bold text-emerald-700 mt-2 font-mono">
-            {metrics.receivedOrders} Received
+            {metrics.receivedOrders} Fully Received
           </div>
           <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">
-            Added to warehouse inventory
+            Physical stock updated on delivery
           </span>
         </div>
 
@@ -294,7 +315,7 @@ export const PurchaseOrderEntry: React.FC = () => {
             Purchase Entry & Orders
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            Create procurement purchase orders and 1-click receive goods directly into warehouse stock.
+            Editable purchase order summaries with multi-stage partial product receipt and inventory tracking.
           </p>
         </div>
 
@@ -322,7 +343,7 @@ export const PurchaseOrderEntry: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1">
-          {['ALL', 'ORDERED', 'RECEIVED', 'DRAFT'].map(st => (
+          {['ALL', 'ORDERED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'DRAFT'].map(st => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -332,7 +353,7 @@ export const PurchaseOrderEntry: React.FC = () => {
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
               }`}
             >
-              {st}
+              {st === 'PARTIALLY_RECEIVED' ? 'PARTIALLY RECEIVED' : st}
             </button>
           ))}
         </div>
@@ -348,79 +369,154 @@ export const PurchaseOrderEntry: React.FC = () => {
                 <th className="p-3.5">Vendor</th>
                 <th className="p-3.5">Linked Project</th>
                 <th className="p-3.5">PO Date</th>
-                <th className="p-3.5">Expected Delivery</th>
+                <th className="p-3.5">Delivery Progress</th>
                 <th className="p-3.5 text-right">Amount (₹)</th>
                 <th className="p-3.5 text-center">Status</th>
-                <th className="p-3.5 text-center">Inventory Inflow</th>
+                <th className="p-3.5 text-center">Physical Receipt Action</th>
                 <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredOrders.map(order => (
-                <tr key={order.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="p-3.5 font-mono font-bold text-amber-600 whitespace-nowrap">
-                    {order.purchaseNumber}
-                  </td>
-                  <td className="p-3.5 font-bold text-slate-800">{order.vendorName}</td>
-                  <td className="p-3.5 text-slate-600 max-w-xs truncate">
-                    {order.projectTitle || <span className="text-slate-400 italic">Central Stock</span>}
-                  </td>
-                  <td className="p-3.5 text-slate-600 whitespace-nowrap">{order.purchaseDate}</td>
-                  <td className="p-3.5 text-slate-600 whitespace-nowrap">
-                    {order.expectedDeliveryDate}
-                  </td>
-                  <td className="p-3.5 text-right font-mono font-bold text-slate-900 text-sm">
-                    ₹{order.totalAmount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3.5 text-center whitespace-nowrap">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        order.status === 'RECEIVED'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : order.status === 'ORDERED'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200'
-                          : 'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="p-3.5 text-center whitespace-nowrap">
-                    {order.stockUpdated ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        <CheckCircle className="w-3 h-3" />
-                        Stock Added
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleReceiveGoods(order)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[10px] rounded border border-amber-200 transition-colors shadow-2xs"
-                      >
-                        <PackagePlus className="w-3 h-3" />
-                        Receive & Add Stock
-                      </button>
-                    )}
-                  </td>
-                  <td className="p-3.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1.5">
+              {filteredOrders.map(order => {
+                const totalOrdered = order.items.reduce((sum, it) => sum + it.orderedQuantity, 0);
+                const totalReceived = order.items.reduce((sum, it) => sum + it.receivedQuantity, 0);
+                const totalPending = order.items.reduce((sum, it) => sum + it.pendingQuantity, 0);
+                const percent = totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
+
+                return (
+                  <tr key={order.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="p-3.5 font-mono font-bold text-amber-600 whitespace-nowrap">
                       <button
                         onClick={() => setViewingPO(order)}
-                        className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="View PO Details"
+                        className="hover:underline text-left cursor-pointer"
+                        title="View PO Summary"
                       >
-                        <Eye className="w-4 h-4" />
+                        {order.purchaseNumber}
                       </button>
-                      <button
-                        onClick={() => handleDeletePO(order.id, order.purchaseNumber)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Delete PO"
+                    </td>
+                    <td className="p-3.5 font-bold text-slate-800">
+                      {order.vendorName}
+                      {order.invoiceReference && (
+                        <span className="block text-[10px] text-slate-400 font-mono font-normal">
+                          Ref: {order.invoiceReference}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-slate-600 max-w-xs truncate">
+                      {order.projectTitle || <span className="text-slate-400 italic">Central Stock</span>}
+                    </td>
+                    <td className="p-3.5 text-slate-600 whitespace-nowrap">{order.purchaseDate}</td>
+                    
+                    {/* Delivery Progress Column */}
+                    <td className="p-3.5 whitespace-nowrap min-w-[140px]">
+                      <div className="flex items-center justify-between text-[11px] mb-1">
+                        <span className="font-bold text-slate-800 font-mono">
+                          {totalReceived} / {totalOrdered} Units
+                        </span>
+                        <span className="font-semibold text-slate-500 font-mono text-[10px]">
+                          {percent}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            percent === 100
+                              ? 'bg-emerald-500'
+                              : percent > 0
+                              ? 'bg-amber-500'
+                              : 'bg-slate-200'
+                          }`}
+                          style={{ width: `${Math.min(100, percent)}%` }}
+                        />
+                      </div>
+                    </td>
+
+                    <td className="p-3.5 text-right font-mono font-bold text-slate-900 text-sm">
+                      ₹{order.totalAmount.toLocaleString('en-IN')}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="p-3.5 text-center whitespace-nowrap">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                          order.status === 'RECEIVED'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : order.status === 'PARTIALLY_RECEIVED'
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : order.status === 'ORDERED'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {order.status === 'PARTIALLY_RECEIVED' ? 'PARTIALLY RECEIVED' : order.status}
+                      </span>
+                    </td>
+
+                    {/* Inflow Action */}
+                    <td className="p-3.5 text-center whitespace-nowrap">
+                      {order.status === 'RECEIVED' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <CheckCircle className="w-3 h-3" />
+                          Stock Fully Added
+                        </span>
+                      ) : order.status === 'PARTIALLY_RECEIVED' ? (
+                        <button
+                          onClick={() => setReceivingPO(order)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[10px] rounded-lg border border-amber-200 transition-colors shadow-2xs"
+                          title="Record arrival of next delivery batch"
+                        >
+                          <Truck className="w-3 h-3 text-amber-600" />
+                          Receive Balance ({totalPending} left)
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setReceivingPO(order)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[10px] rounded-lg border border-blue-200 transition-colors shadow-2xs"
+                        >
+                          <PackagePlus className="w-3 h-3" />
+                          Receive Goods (GRN)
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="p-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setViewingPO(order)}
+                          className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="View PO Summary & Receipts"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingPO(order)}
+                          className="p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Edit PO Summary & Quantities"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        {totalPending > 0 && (
+                          <button
+                            onClick={() => setReceivingPO(order)}
+                            className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Record Delivery Receipt"
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeletePO(order.id, order.purchaseNumber)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete PO"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filteredOrders.length === 0 && (
                 <tr>
                   <td colSpan={9} className="p-8 text-center text-slate-400 italic">
@@ -433,7 +529,7 @@ export const PurchaseOrderEntry: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal: New Purchase Entry */}
+      {/* Modal: New Purchase Entry Form */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in">
@@ -624,7 +720,7 @@ export const PurchaseOrderEntry: React.FC = () => {
                             <span className="text-[10px] text-slate-400 font-mono">{it.sku}</span>
                           </td>
                           <td className="p-2.5 text-center font-bold text-slate-700">
-                            {it.quantity} {it.unit}
+                            {it.orderedQuantity} {it.unit}
                           </td>
                           <td className="p-2.5 text-right font-mono text-slate-600">
                             ₹{it.unitPrice.toLocaleString('en-IN')}
@@ -633,7 +729,7 @@ export const PurchaseOrderEntry: React.FC = () => {
                             ₹{it.taxAmount.toLocaleString('en-IN')}
                           </td>
                           <td className="p-2.5 text-right font-mono font-bold text-slate-800">
-                            ₹{it.totalPrice.toLocaleString('en-IN')}
+                            ₹{it.totalAmount.toLocaleString('en-IN')}
                           </td>
                           <td className="p-2.5 text-center">
                             <button
@@ -715,114 +811,44 @@ export const PurchaseOrderEntry: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: View PO Details */}
+      {/* Modal: View PO Summary & Delivery Receipts */}
       {viewingPO && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div>
-                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded font-mono">
-                  {viewingPO.purchaseNumber}
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-1">Purchase Order Summary</h3>
-              </div>
-              <button onClick={() => setViewingPO(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <PurchaseOrderSummaryModal
+          order={viewingPO}
+          onClose={() => setViewingPO(null)}
+          onEditPO={order => {
+            setViewingPO(null);
+            setEditingPO(order);
+          }}
+          onReceiveGoods={order => {
+            setViewingPO(null);
+            setReceivingPO(order);
+          }}
+        />
+      )}
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">Vendor</span>
-                <span className="font-bold text-slate-900 text-sm block mt-0.5">
-                  {viewingPO.vendorName}
-                </span>
-                {viewingPO.invoiceReference && (
-                  <span className="text-slate-600 block mt-1">
-                    Invoice Ref: {viewingPO.invoiceReference}
-                  </span>
-                )}
-              </div>
+      {/* Modal: Edit PO Summary & Quantities */}
+      {editingPO && (
+        <EditPurchaseOrderModal
+          order={editingPO}
+          vendors={vendors}
+          products={products}
+          projects={projects}
+          onClose={() => setEditingPO(null)}
+          onOrderSaved={handleOrderSavedFromModal}
+          showToast={showToast}
+        />
+      )}
 
-              <div className="bg-slate-50 p-3 rounded-xl space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Order Date:</span>
-                  <span className="font-semibold text-slate-800">{viewingPO.purchaseDate}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className="font-bold text-blue-700">{viewingPO.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Stock Updated:</span>
-                  <span className="font-semibold text-emerald-700">
-                    {viewingPO.stockUpdated ? 'Yes' : 'No'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 text-slate-700 font-semibold">
-                  <tr>
-                    <th className="p-2.5">Item</th>
-                    <th className="p-2.5 text-center">Qty</th>
-                    <th className="p-2.5 text-right">Unit Price</th>
-                    <th className="p-2.5 text-right">GST</th>
-                    <th className="p-2.5 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {viewingPO.items.map(item => (
-                    <tr key={item.id}>
-                      <td className="p-2.5 font-medium text-slate-800">{item.productName}</td>
-                      <td className="p-2.5 text-center font-bold text-slate-700">
-                        {item.quantity} {item.unit}
-                      </td>
-                      <td className="p-2.5 text-right font-mono text-slate-600">
-                        ₹{item.unitPrice.toLocaleString('en-IN')}
-                      </td>
-                      <td className="p-2.5 text-right font-mono text-purple-700">
-                        ₹{item.taxAmount.toLocaleString('en-IN')}
-                      </td>
-                      <td className="p-2.5 text-right font-mono font-bold text-slate-800">
-                        ₹{item.totalPrice.toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center justify-between text-sm font-bold bg-amber-50 p-3 rounded-xl">
-              <span className="text-amber-900">Total Purchase Amount:</span>
-              <span className="text-amber-900 font-mono">
-                ₹{viewingPO.totalAmount.toLocaleString('en-IN')}
-              </span>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              {!viewingPO.stockUpdated && (
-                <button
-                  onClick={() => {
-                    handleReceiveGoods(viewingPO);
-                    setViewingPO(null);
-                  }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
-                >
-                  Receive Goods & Add Stock
-                </button>
-              )}
-              <button
-                onClick={() => setViewingPO(null)}
-                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Modal: Record Delivery Receipt (GRN) */}
+      {receivingPO && (
+        <GoodsReceiptModal
+          order={receivingPO}
+          currentUser={currentUser}
+          onClose={() => setReceivingPO(null)}
+          onReceiptRecorded={handleReceiptRecordedFromModal}
+          showToast={showToast}
+        />
       )}
     </div>
   );

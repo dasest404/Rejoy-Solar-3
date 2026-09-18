@@ -59,7 +59,7 @@ export const PurchaseReport: React.FC<PurchaseReportProps> = ({
   const totalPurchaseValue = filteredOrders.reduce((sum, po) => sum + (po.totalAmount || 0), 0);
   const totalInputTaxCredit = filteredOrders.reduce((sum, po) => sum + (po.taxAmount || 0), 0);
   const receivedOrders = filteredOrders.filter(po => po.status === 'RECEIVED').length;
-  const pendingDelivery = filteredOrders.filter(po => po.status === 'ORDERED' || po.status === 'DRAFT').length;
+  const pendingDelivery = filteredOrders.filter(po => po.status === 'ORDERED' || po.status === 'PARTIALLY_RECEIVED' || po.status === 'DRAFT').length;
 
   // Chart data by Vendor
   const vendorBreakdown = useMemo(() => {
@@ -108,6 +108,8 @@ export const PurchaseReport: React.FC<PurchaseReportProps> = ({
     switch (status) {
       case 'RECEIVED':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'PARTIALLY_RECEIVED':
+        return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'ORDERED':
         return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'DRAFT':
