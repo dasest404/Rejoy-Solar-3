@@ -1,3 +1,7 @@
+import { storageService } from './storage';
+import { validateCustomer, validateEmployee } from './validation';
+import { Customer, Employee } from '../types/solar';
+
 export type ExportModule =
   | 'Leads'
   | 'Customers'
@@ -98,6 +102,11 @@ export function parseAndValidateCSV(text: string, module: ExportModule): ImportV
   const errors: string[] = [];
   let successful = 0;
   let failed = 0;
+  let duplicate = 0;
+
+  // Track batch candidates to catch intra-file duplicates
+  const batchCustomers: Customer[] = [...storageService.getCustomers()];
+  const batchEmployees: Employee[] = [...storageService.getEmployees()];
 
   rows.forEach((row, index) => {
     const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
@@ -120,6 +129,72 @@ export function parseAndValidateCSV(text: string, module: ExportModule): ImportV
         errors.push(`Row ${rowNum}: Valid phone number is required.`);
         return;
       }
+    } else if (module === 'Customers') {
+      const name = cols[0];
+      const phone = cols[3] || '';
+      const email = cols[4] || '';
+      const gstNumber = cols[7] || '';
+      if (!name) {
+        failed++;
+        errors.push(`Row ${rowNum}: Customer name is mandatory.`);
+        return;
+      }
+      const dupCheck = validateCustomer({ name, phone, email, gstNumber }, batchCustomers);
+      if (!dupCheck.valid) {
+        duplicate++;
+        failed++;
+        errors.push(`Row ${rowNum} Duplicate Customer: ${dupCheck.message}`);
+        return;
+      }
+      // Add to batch to prevent duplicates within the same import file
+      batchCustomers.push({
+        id: `batch-c-${rowNum}`,
+        name,
+        companyName: cols[1] || '',
+        customerType: (cols[2] as Customer['customerType']) || 'Commercial',
+        phone,
+        email,
+        siteAddress: cols[5] || '',
+        city: cols[6] || '',
+        state: 'Gujarat',
+        pincode: '380001',
+        gstNumber,
+        sanctionedLoadKw: Number(cols[8]) || 0,
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } else if (module === 'Employees') {
+      const code = cols[0];
+      const name = cols[1];
+      const phone = cols[4] || '';
+      const email = cols[5] || '';
+      if (!code || !name) {
+        failed++;
+        errors.push(`Row ${rowNum}: Employee code and name are mandatory.`);
+        return;
+      }
+      const dupCheck = validateEmployee({ employeeCode: code, name, phone, email }, batchEmployees);
+      if (!dupCheck.valid) {
+        duplicate++;
+        failed++;
+        errors.push(`Row ${rowNum} Duplicate Employee: ${dupCheck.message}`);
+        return;
+      }
+      // Add to batch to prevent duplicates within the same import file
+      batchEmployees.push({
+        id: `batch-e-${rowNum}`,
+        employeeCode: code,
+        name,
+        department: (cols[2] as Employee['department']) || 'Operations',
+        designation: cols[3] || 'Staff',
+        phone,
+        email,
+        joiningDate: cols[6] || new Date().toISOString().slice(0, 10),
+        salaryMonthly: Number(cols[7]) || 0,
+        status: 'ACTIVE',
+        photoUrl: ''
+      });
     } else if (module === 'Payments') {
       if (!cols[0] || isNaN(Number(cols[3]))) {
         failed++;
@@ -136,7 +211,7 @@ export function parseAndValidateCSV(text: string, module: ExportModule): ImportV
     totalRows: rows.length,
     successful,
     failed,
-    duplicate: 0,
+    duplicate,
     errors
   };
 }

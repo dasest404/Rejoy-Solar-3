@@ -746,3 +746,9 @@ export interface StockMovement {
   timestamp: string;
   performedBy: string;
 }
+
+export interface ValidationResult {
+  valid: boolean;
+  field?: string;
+  message?: string;
+}

@@ -248,13 +248,19 @@ export const HrmsView: React.FC = () => {
 
   const handleSaveEmployee = (emp: Employee) => {
     const isEdit = Boolean(employeeToEdit);
-    storageService.saveEmployee(emp);
-    showToast(
-      isEdit ? `Employee ${emp.name} (${emp.employeeCode}) updated successfully` : `Employee ${emp.name} (${emp.employeeCode}) registered successfully`,
-      'success'
-    );
-    triggerRefresh();
-    setLocalUpdateCounter(c => c + 1);
+    try {
+      storageService.saveEmployee(emp);
+      showToast(
+        isEdit ? `Employee ${emp.name} (${emp.employeeCode}) updated successfully` : `Employee ${emp.name} (${emp.employeeCode}) registered successfully`,
+        'success'
+      );
+      triggerRefresh();
+      setLocalUpdateCounter(c => c + 1);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save employee';
+      showToast(msg, 'error');
+      throw err;
+    }
   };
 
   const handleOpenDeleteEmployee = (emp: Employee) => {

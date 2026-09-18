@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Customer, SolarProject, AppNotification, SystemSettings } from '../types/solar';
 import { storageService } from '../services/storage';
 import { ExportModule } from '../services/exportImport';
+import { ReportCategory } from '../types/reports';
 
 export type AppView =
   | 'dashboard'
@@ -63,6 +64,9 @@ interface AppContextType {
   removeToast: (id: string) => void;
   stageFilterKey: string | null;
   setStageFilterKey: (key: string | null) => void;
+  activeReportCategory: ReportCategory;
+  setActiveReportCategory: (category: ReportCategory) => void;
+  openReport: (category: ReportCategory) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
 }
@@ -151,6 +155,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const initialRoute = getInitialViewFromPath();
   const [activeView, setActiveViewState] = useState<AppView>(initialRoute.view);
   const [stageFilterKey, setStageFilterKeyInternal] = useState<string | null>(initialRoute.filterKey);
+  const [activeReportCategory, setActiveReportCategory] = useState<ReportCategory>('sales');
+
+  const openReport = (category: ReportCategory) => {
+    setActiveReportCategory(category);
+    setActiveView('reports');
+  };
 
   const setActiveView = (view: AppView) => {
     setActiveViewState(view);
@@ -315,6 +325,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeToast,
         stageFilterKey,
         setStageFilterKey,
+        activeReportCategory,
+        setActiveReportCategory,
+        openReport,
         refreshTrigger,
         triggerRefresh
       }}

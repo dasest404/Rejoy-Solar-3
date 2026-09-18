@@ -30,6 +30,24 @@ import {
   StockMovement
 } from '../types/solar';
 import { buildStandardWorkflowStages, WorkflowProgressLevel } from './workflowStages';
+import {
+  validateCustomer,
+  validateProduct,
+  validateVendor,
+  validateEmployee,
+  validateBOM,
+  assertValid,
+  DuplicateRecordError
+} from './validation';
+
+export {
+  DuplicateRecordError,
+  validateCustomer,
+  validateProduct,
+  validateVendor,
+  validateEmployee,
+  validateBOM
+};
 
 const STORAGE_KEYS = {
   LEADS: 'solar_erp_leads_v2',
@@ -2120,6 +2138,19 @@ class StorageService {
       return { customer: customers[0], project: projects[0] };
     }
 
+    // Pre-validate customer uniqueness before modifying lead or creating project
+    const customerValidation = validateCustomer(
+      {
+        name: lead.customerName,
+        companyName: lead.companyName,
+        phone: lead.phone,
+        email: lead.email,
+        city: lead.city
+      },
+      this.getCustomers()
+    );
+    assertValid(customerValidation);
+
     const customerId = `cust-${Date.now()}`;
     const projectId = `proj-${Date.now()}`;
 
@@ -2196,6 +2227,19 @@ class StorageService {
     capacityKw?: number;
     estimatedValue?: number;
   }, createdByName: string = 'System Admin', role: string = 'Admin'): { customer: Customer; project: SolarProject } {
+    // Pre-validate customer uniqueness
+    const customerValidation = validateCustomer(
+      {
+        name: customerData.name,
+        companyName: customerData.companyName,
+        phone: customerData.phone,
+        email: customerData.email,
+        city: customerData.city
+      },
+      this.getCustomers()
+    );
+    assertValid(customerValidation);
+
     const customerId = `cust-${Date.now()}`;
     const projectId = `proj-${Date.now()}`;
     const capacityKw = Number(customerData.capacityKw) || 10;
@@ -2267,6 +2311,9 @@ class StorageService {
 
   saveCustomer(customer: Customer): void {
     const customers = this.getCustomers();
+    const validation = validateCustomer(customer, customers, customer.id);
+    assertValid(validation);
+
     const index = customers.findIndex(c => c.id === customer.id);
     if (index >= 0) {
       customers[index] = { ...customer, updatedAt: new Date().toISOString() };
@@ -2560,6 +2607,9 @@ class StorageService {
 
   saveEmployee(emp: Employee): void {
     const employees = this.getEmployees();
+    const validation = validateEmployee(emp, employees, emp.id);
+    assertValid(validation);
+
     const index = employees.findIndex(e => e.id === emp.id);
     if (index >= 0) {
       employees[index] = emp;
@@ -2823,6 +2873,9 @@ class StorageService {
 
   saveProduct(product: ProductItem): void {
     const products = this.getProducts();
+    const validation = validateProduct(product, products, product.id);
+    assertValid(validation);
+
     const idx = products.findIndex(p => p.id === product.id);
     if (idx >= 0) {
       products[idx] = { ...product, updatedAt: new Date().toISOString() };
@@ -2874,6 +2927,9 @@ class StorageService {
 
   saveVendor(vendor: Vendor): void {
     const vendors = this.getVendors();
+    const validation = validateVendor(vendor, vendors, vendor.id);
+    assertValid(validation);
+
     const idx = vendors.findIndex(v => v.id === vendor.id);
     if (idx >= 0) {
       vendors[idx] = { ...vendor, updatedAt: new Date().toISOString() };
@@ -2999,6 +3055,9 @@ class StorageService {
 
   saveBOM(bom: BillOfMaterials): void {
     const boms = this.getBOMs();
+    const validation = validateBOM(bom, boms, bom.id);
+    assertValid(validation);
+
     const idx = boms.findIndex(b => b.id === bom.id);
     if (idx >= 0) {
       boms[idx] = { ...bom, updatedAt: new Date().toISOString() };

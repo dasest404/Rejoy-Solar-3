@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Employee } from '../../types/solar';
 import { X, UserPlus, Save, AlertCircle, Building2, Briefcase, Phone, Mail, Calendar, DollarSign, Image, MapPin } from 'lucide-react';
+import { validateEmployee, DuplicateRecordError } from '../../services/validation';
 
 interface EmployeeModalProps {
   isOpen: boolean;
@@ -104,14 +105,6 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     const trimmedCode = formData.employeeCode.trim();
     if (!trimmedCode) {
       newErrors.employeeCode = 'Employee code is required.';
-    } else {
-      const isDuplicate = existingEmployees.some(e =>
-        e.employeeCode.toLowerCase() === trimmedCode.toLowerCase() &&
-        (!isEditing || e.id !== employeeToEdit?.id)
-      );
-      if (isDuplicate) {
-        newErrors.employeeCode = `Employee code "${trimmedCode}" is already in use.`;
-      }
     }
 
     if (!formData.designation.trim()) {
@@ -137,6 +130,22 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
     if (formData.salaryMonthly < 0 || isNaN(formData.salaryMonthly)) {
       newErrors.salaryMonthly = 'Salary must be a non-negative number.';
+    }
+
+    // Comprehensive duplicate validation across code, phone, and email
+    const dupCheck = validateEmployee(
+      {
+        name: formData.name,
+        employeeCode: formData.employeeCode,
+        phone: formData.phone,
+        email: formData.email
+      },
+      existingEmployees,
+      employeeToEdit?.id
+    );
+
+    if (!dupCheck.valid && dupCheck.field) {
+      newErrors[dupCheck.field] = dupCheck.message;
     }
 
     setErrors(newErrors);
@@ -166,6 +175,12 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
       onSave(finalEmployee);
       onClose();
+    } catch (err: unknown) {
+      if (err instanceof DuplicateRecordError) {
+        setErrors(prev => ({ ...prev, [err.field]: err.message }));
+      } else if (err instanceof Error) {
+        setErrors(prev => ({ ...prev, general: err.message }));
+      }
     } finally {
       setIsSubmitting(false);
     }

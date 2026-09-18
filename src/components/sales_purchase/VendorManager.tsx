@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { storageService } from '../../services/storage';
 import { Vendor } from '../../types/solar';
+import { validateVendor, DuplicateRecordError } from '../../services/validation';
 import {
   Building2,
   Plus,
@@ -24,6 +25,7 @@ export const VendorManager: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -66,6 +68,7 @@ export const VendorManager: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingVendor(null);
+    setFormErrors({});
     setFormName('');
     setFormContactPerson('');
     setFormEmail('');
@@ -85,6 +88,7 @@ export const VendorManager: React.FC = () => {
 
   const handleOpenEdit = (vendor: Vendor) => {
     setEditingVendor(vendor);
+    setFormErrors({});
     setFormName(vendor.name);
     setFormContactPerson(vendor.contactPerson);
     setFormEmail(vendor.email);
@@ -104,8 +108,14 @@ export const VendorManager: React.FC = () => {
 
   const handleSaveVendor = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    if (!formName.trim() || !formContactPerson.trim()) {
+    const errs: Record<string, string> = {};
+    if (!formName.trim()) errs.name = 'Vendor name is required';
+    if (!formContactPerson.trim()) errs.contactPerson = 'Contact person is required';
+
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
       showToast('Vendor name and contact person are required', 'warning');
       return;
     }
@@ -138,13 +148,29 @@ export const VendorManager: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    storageService.saveVendor(vendorToSave);
-    triggerRefresh();
-    showToast(
-      `Vendor ${vendorToSave.name} ${editingVendor ? 'updated' : 'added'} successfully`,
-      'success'
-    );
-    setIsModalOpen(false);
+    // Duplicate validation
+    const dupCheck = validateVendor(vendorToSave, vendors, editingVendor?.id);
+    if (!dupCheck.valid) {
+      setFormErrors({ [dupCheck.field || 'general']: dupCheck.message });
+      showToast(dupCheck.message, 'error');
+      return;
+    }
+
+    try {
+      storageService.saveVendor(vendorToSave);
+      triggerRefresh();
+      showToast(
+        `Vendor ${vendorToSave.name} ${editingVendor ? 'updated' : 'added'} successfully`,
+        'success'
+      );
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save vendor';
+      showToast(msg, 'error');
+      if (err instanceof DuplicateRecordError) {
+        setFormErrors({ [err.field]: err.message });
+      }
+    }
   };
 
   const handleDeleteVendor = (id: string, name: string) => {
@@ -372,6 +398,12 @@ export const VendorManager: React.FC = () => {
 
             {/* Body */}
             <form onSubmit={handleSaveVendor} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {formErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+                  {formErrors.general}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -381,10 +413,18 @@ export const VendorManager: React.FC = () => {
                     type="text"
                     required
                     value={formName}
-                    onChange={e => setFormName(e.target.value)}
+                    onChange={e => {
+                      setFormName(e.target.value);
+                      if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                    }}
                     placeholder="e.g. Waaree Energies Limited"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl ${
+                      formErrors.name ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.name && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -412,10 +452,16 @@ export const VendorManager: React.FC = () => {
                     type="text"
                     required
                     value={formContactPerson}
-                    onChange={e => setFormContactPerson(e.target.value)}
+                    onChange={e => {
+                      setFormContactPerson(e.target.value);
+                      if (formErrors.contactPerson) setFormErrors(prev => ({ ...prev, contactPerson: '' }));
+                    }}
                     placeholder="e.g. Ramesh Joshi"
                     className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
                   />
+                  {formErrors.contactPerson && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.contactPerson}</p>
+                  )}
                 </div>
 
                 <div>
@@ -423,10 +469,18 @@ export const VendorManager: React.FC = () => {
                   <input
                     type="text"
                     value={formPhone}
-                    onChange={e => setFormPhone(e.target.value)}
+                    onChange={e => {
+                      setFormPhone(e.target.value);
+                      if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                    }}
                     placeholder="+91 98200 12345"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl ${
+                      formErrors.phone ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.phone && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.phone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -434,10 +488,18 @@ export const VendorManager: React.FC = () => {
                   <input
                     type="email"
                     value={formEmail}
-                    onChange={e => setFormEmail(e.target.value)}
+                    onChange={e => {
+                      setFormEmail(e.target.value);
+                      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                    }}
                     placeholder="sales@vendor.com"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl ${
+                      formErrors.email ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.email && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.email}</p>
+                  )}
                 </div>
               </div>
 
@@ -447,10 +509,18 @@ export const VendorManager: React.FC = () => {
                   <input
                     type="text"
                     value={formGst}
-                    onChange={e => setFormGst(e.target.value.toUpperCase())}
+                    onChange={e => {
+                      setFormGst(e.target.value.toUpperCase());
+                      if (formErrors.gstNumber) setFormErrors(prev => ({ ...prev, gstNumber: '' }));
+                    }}
                     placeholder="27AAACW1234F1Z5"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl font-mono ${
+                      formErrors.gstNumber ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.gstNumber && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.gstNumber}</p>
+                  )}
                 </div>
 
                 <div>

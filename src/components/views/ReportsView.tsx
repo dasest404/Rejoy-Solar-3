@@ -1,135 +1,306 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { storageService } from '../../services/storage';
-import { exportToCSV } from '../../services/exportImport';
+import { ReportCategory, REPORT_CATEGORIES, ReportFilterState } from '../../types/reports';
 import {
   BarChart3,
-  Download,
   TrendingUp,
-  SunMedium,
-  CreditCard,
+  FileSpreadsheet,
+  Receipt,
+  ShoppingCart,
+  Boxes,
+  Users,
   Building2,
-  Calendar
+  DollarSign,
+  Wallet,
+  CalendarCheck,
+  Target,
+  Sun
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
+
+import { SalesReport } from '../reports/SalesReport';
+import { PurchaseReport } from '../reports/PurchaseReport';
+import { ProductStockReport } from '../reports/ProductStockReport';
+import { CustomerLedgerReport } from '../reports/CustomerLedgerReport';
+import { VendorLedgerReport } from '../reports/VendorLedgerReport';
+import { IncomeSummaryReport } from '../reports/IncomeSummaryReport';
+import { ExpenseSummaryReport } from '../reports/ExpenseSummaryReport';
+import { PayrollReport } from '../reports/PayrollReport';
+import { MonthlyAttendanceReport } from '../reports/MonthlyAttendanceReport';
+import { LeadsReport } from '../reports/LeadsReport';
+import { ProjectReport } from '../reports/ProjectReport';
 
 export const ReportsView: React.FC = () => {
-  const { showToast, refreshTrigger } = useApp();
-  const projects = useMemo(() => storageService.getProjects(), [refreshTrigger]);
+  const { showToast, refreshTrigger, activeReportCategory, setActiveReportCategory } = useApp();
+
+  // Consistent filter state across reporting center
+  const [filters, setFilters] = useState<ReportFilterState>({
+    fromDate: '',
+    toDate: '',
+    name: '',
+    status: 'ALL'
+  });
+
+  const handleFilterChange = (updated: Partial<ReportFilterState>) => {
+    setFilters(prev => ({ ...prev, ...updated }));
+  };
+
+  const handleFilterReset = () => {
+    setFilters({
+      fromDate: '',
+      toDate: '',
+      name: '',
+      status: 'ALL'
+    });
+    showToast('Filters reset to default', 'info');
+  };
+
+  // Change active category and reset status filter to ALL to prevent mismatched filters
+  const handleSelectCategory = (cat: ReportCategory) => {
+    setActiveReportCategory(cat);
+    setFilters(prev => ({ ...prev, status: 'ALL' }));
+  };
+
+  // Data fetching from central storageService
+  const salesInvoices = useMemo(() => storageService.getSalesInvoices(), [refreshTrigger]);
+  const purchaseOrders = useMemo(() => storageService.getPurchaseOrders(), [refreshTrigger]);
+  const products = useMemo(() => storageService.getProducts(), [refreshTrigger]);
+  const customers = useMemo(() => storageService.getCustomers(), [refreshTrigger]);
+  const vendors = useMemo(() => storageService.getVendors(), [refreshTrigger]);
   const payments = useMemo(() => storageService.getPayments(), [refreshTrigger]);
   const expenses = useMemo(() => storageService.getExpenses(), [refreshTrigger]);
+  const payslips = useMemo(() => storageService.getPayslips(), [refreshTrigger]);
+  const attendance = useMemo(() => storageService.getAttendance(), [refreshTrigger]);
+  const employees = useMemo(() => storageService.getEmployees(), [refreshTrigger]);
+  const leads = useMemo(() => storageService.getLeads(), [refreshTrigger]);
+  const projects = useMemo(() => storageService.getProjects(), [refreshTrigger]);
 
-  const totalCapacity = projects.reduce((s, p) => s + p.capacityKw, 0);
-  const totalValue = projects.reduce((s, p) => s + p.totalValue, 0);
-  const totalInflow = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + p.amount, 0);
-  const totalOutflow = expenses.reduce((s, e) => s + e.amount, 0);
+  const currentMeta = useMemo(() => {
+    return REPORT_CATEGORIES.find(c => c.id === activeReportCategory) || REPORT_CATEGORIES[0];
+  }, [activeReportCategory]);
 
-  const capacityByCustomer = projects.map(p => ({
-    name: p.customerName.slice(0, 14),
-    capacity: p.capacityKw,
-    valueLakh: p.totalValue / 100000
-  }));
-
-  const handleExportFullReport = () => {
-    const headers = ['Project Code', 'Customer', 'Capacity (kW)', 'Value (INR)', 'Stage', 'Progress (%)'];
-    const rows = projects.map(p => [
-      p.projectCode,
-      p.customerName,
-      p.capacityKw,
-      p.totalValue,
-      p.currentStageKey,
-      p.progressPercentage
-    ]);
-    exportToCSV(`SolarPulse_Executive_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
-    showToast('Executive report downloaded as CSV', 'success');
+  const getCategoryIcon = (id: ReportCategory) => {
+    switch (id) {
+      case 'sales':
+        return <DollarSign className="w-3.5 h-3.5" />;
+      case 'purchase':
+        return <ShoppingCart className="w-3.5 h-3.5" />;
+      case 'product_stock':
+        return <Boxes className="w-3.5 h-3.5" />;
+      case 'customer_ledger':
+        return <Users className="w-3.5 h-3.5" />;
+      case 'vendor_ledger':
+        return <Building2 className="w-3.5 h-3.5" />;
+      case 'income_summary':
+        return <TrendingUp className="w-3.5 h-3.5" />;
+      case 'expense_summary':
+        return <Receipt className="w-3.5 h-3.5" />;
+      case 'payroll':
+        return <Wallet className="w-3.5 h-3.5" />;
+      case 'monthly_attendance':
+        return <CalendarCheck className="w-3.5 h-3.5" />;
+      case 'leads':
+        return <Target className="w-3.5 h-3.5" />;
+      case 'projects':
+        return <Sun className="w-3.5 h-3.5" />;
+      default:
+        return <FileSpreadsheet className="w-3.5 h-3.5" />;
+    }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Header Card */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-              Executive Analytics
+            <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Reporting Center</span>
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs text-slate-500 font-medium">Turnkey EPC Portfolio Metrics</span>
+            <span className="text-xs text-slate-500 font-medium">{currentMeta.label}</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1">
-            Operational & Financial Reports
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5">
+            {currentMeta.label}
           </h1>
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl">{currentMeta.description}</p>
         </div>
 
-        <button
-          onClick={handleExportFullReport}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs self-start sm:self-auto"
-        >
-          <Download className="w-4 h-4" />
-          <span>Download Executive Report</span>
-        </button>
-      </div>
-
-      {/* Summary KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold text-slate-500 uppercase">Portfolio Size</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">
-            {(totalCapacity / 1000).toFixed(2)} MW
+        {/* Global summary count badges */}
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+            <span className="text-slate-400 font-medium">Invoices: </span>
+            <span className="font-bold text-slate-900">{salesInvoices.length}</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">{projects.length} sites in Gujarat & MH</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold text-slate-500 uppercase">Gross Booking Value</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">
-            ₹{(totalValue / 10000000).toFixed(2)} Cr
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+            <span className="text-slate-400 font-medium">POs: </span>
+            <span className="font-bold text-slate-900">{purchaseOrders.length}</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">Average ₹42-48/Wp turnkey</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold text-slate-500 uppercase">Realized Revenue</span>
-          <div className="text-2xl font-black text-emerald-700 mt-1">
-            ₹{(totalInflow / 100000).toFixed(1)} Lakh
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+            <span className="text-slate-400 font-medium">Clients: </span>
+            <span className="font-bold text-slate-900">{customers.length}</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">Milestones cleared via bank</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold text-slate-500 uppercase">Gross Project Margin</span>
-          <div className="text-2xl font-black text-blue-700 mt-1">
-            ₹{((totalInflow - totalOutflow) / 100000).toFixed(1)} Lakh
+          <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+            <span className="text-slate-400 font-medium">Projects: </span>
+            <span className="font-bold text-slate-900">{projects.length}</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">Net realized cash surplus</p>
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs">
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Contract Capacity Distribution by Client Site</h3>
-        <p className="text-xs text-slate-500 mb-4">Capacity (kW) vs Contract Value (₹ Lakhs)</p>
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={capacityByCustomer} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0' }}
-              />
-              <Bar dataKey="capacity" name="Capacity (kW)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="valueLakh" name="Value (₹ Lakh)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* 11 Reports Navigation Pill Bar */}
+      <div className="bg-white rounded-2xl p-2 border border-slate-200/80 shadow-2xs overflow-x-auto">
+        <div className="flex items-center gap-1 min-w-max">
+          {REPORT_CATEGORIES.map(cat => {
+            const isActive = activeReportCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleSelectCategory(cat.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  isActive
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                {getCategoryIcon(cat.id)}
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Active Report Component */}
+      <div>
+        {activeReportCategory === 'sales' && (
+          <SalesReport
+            invoices={salesInvoices}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'purchase' && (
+          <PurchaseReport
+            orders={purchaseOrders}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'product_stock' && (
+          <ProductStockReport
+            products={products}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'customer_ledger' && (
+          <CustomerLedgerReport
+            customers={customers}
+            invoices={salesInvoices}
+            payments={payments}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'vendor_ledger' && (
+          <VendorLedgerReport
+            vendors={vendors}
+            purchaseOrders={purchaseOrders}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'income_summary' && (
+          <IncomeSummaryReport
+            payments={payments}
+            customers={customers}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'expense_summary' && (
+          <ExpenseSummaryReport
+            expenses={expenses}
+            projects={projects}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'payroll' && (
+          <PayrollReport
+            payslips={payslips}
+            employees={employees}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'monthly_attendance' && (
+          <MonthlyAttendanceReport
+            attendance={attendance}
+            employees={employees}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'leads' && (
+          <LeadsReport
+            leads={leads}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
+
+        {activeReportCategory === 'projects' && (
+          <ProjectReport
+            projects={projects}
+            customers={customers}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onFilterReset={handleFilterReset}
+            meta={currentMeta}
+            showToast={showToast}
+          />
+        )}
       </div>
     </div>
   );

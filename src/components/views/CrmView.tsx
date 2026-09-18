@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
 import { Lead, Customer, Quotation } from '../../types/solar';
 import { StatusBadge } from '../common/StatusBadge';
+import { validateCustomer, DuplicateRecordError } from '../../services/validation';
 import {
   Users,
   Building2,
@@ -52,6 +53,7 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
 
   // New Customer Modal state
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
+  const [customerErrors, setCustomerErrors] = useState<Record<string, string>>({});
   const [customerForm, setCustomerForm] = useState({
     name: '',
     companyName: '',
@@ -125,33 +127,78 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
   };
 
   const handleConvertToCustomerAndProject = (lead: Lead) => {
-    const result = storageService.convertLeadToCustomerAndProject(
-      lead.id,
-      currentUser.name,
-      currentUser.role
+    // Pre-validate for duplicate customer
+    const validation = validateCustomer(
+      {
+        name: lead.customerName,
+        companyName: lead.companyName,
+        phone: lead.phone,
+        email: lead.email,
+        city: lead.city
+      },
+      customers
     );
-    showToast(`Lead converted! Created Customer & Project ${result.project.projectCode}`, 'success');
-    triggerRefresh();
-    openCustomerControlCenter(result.customer.id, result.project.id);
+
+    if (!validation.valid) {
+      showToast(validation.message || 'Cannot convert: A customer with these details already exists.', 'error');
+      return;
+    }
+
+    try {
+      const result = storageService.convertLeadToCustomerAndProject(
+        lead.id,
+        currentUser.name,
+        currentUser.role
+      );
+      showToast(`Lead converted! Created Customer & Project ${result.project.projectCode}`, 'success');
+      triggerRefresh();
+      openCustomerControlCenter(result.customer.id, result.project.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error converting lead to customer';
+      showToast(msg, 'error');
+    }
   };
 
   const handleCreateCustomerAndProject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerForm.name || !customerForm.phone) {
+    setCustomerErrors({});
+
+    const errs: Record<string, string> = {};
+    if (!customerForm.name.trim()) errs.name = 'Customer name is required';
+    if (!customerForm.phone.trim()) errs.phone = 'Phone number is required';
+
+    if (Object.keys(errs).length > 0) {
+      setCustomerErrors(errs);
       showToast('Customer name and phone number are required', 'error');
       return;
     }
 
-    const result = storageService.createCustomerAndProject(
-      customerForm,
-      currentUser.name,
-      currentUser.role
-    );
+    // Duplicate validation
+    const validation = validateCustomer(customerForm, customers);
+    if (!validation.valid) {
+      setCustomerErrors({ [validation.field || 'general']: validation.message || 'Duplicate customer details detected' });
+      showToast(validation.message || 'Duplicate customer details detected', 'error');
+      return;
+    }
 
-    setIsNewCustomerOpen(false);
-    showToast(`Created Customer "${result.customer.name}" & Project ${result.project.projectCode}. Stage 1 initialized.`, 'success');
-    triggerRefresh();
-    openCustomerControlCenter(result.customer.id, result.project.id);
+    try {
+      const result = storageService.createCustomerAndProject(
+        customerForm,
+        currentUser.name,
+        currentUser.role
+      );
+
+      setIsNewCustomerOpen(false);
+      showToast(`Created Customer "${result.customer.name}" & Project ${result.project.projectCode}. Stage 1 initialized.`, 'success');
+      triggerRefresh();
+      openCustomerControlCenter(result.customer.id, result.project.id);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error creating customer';
+      showToast(msg, 'error');
+      if (err instanceof DuplicateRecordError) {
+        setCustomerErrors({ [err.field]: err.message });
+      }
+    }
   };
 
   const calculateQuoteFinancials = () => {
@@ -222,6 +269,30 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
             >
               <Plus className="w-4 h-4" />
               <span>Add Solar Lead</span>
+            </button>
+          )}
+
+          {activeTab === 'CUSTOMERS' && (
+            <button
+              onClick={() => {
+                setCustomerForm({
+                  name: '',
+                  companyName: '',
+                  customerType: 'Commercial',
+                  phone: '+91 ',
+                  email: '',
+                  siteAddress: '',
+                  city: 'Ahmedabad',
+                  capacityKw: 25,
+                  estimatedValue: 1250000
+                });
+                setCustomerErrors({});
+                setIsNewCustomerOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Customer</span>
             </button>
           )}
 
@@ -770,6 +841,187 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW CUSTOMER MODAL */}
+      {isNewCustomerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-base text-slate-900">Add New Commercial / Industrial Customer</h3>
+              </div>
+              <button onClick={() => setIsNewCustomerOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomerAndProject} className="p-5 space-y-4">
+              {customerErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                  <span className="font-bold">Error:</span> {customerErrors.general}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Customer / Contact Person *</label>
+                  <input
+                    type="text"
+                    required
+                    value={customerForm.name}
+                    onChange={e => {
+                      setCustomerForm({ ...customerForm, name: e.target.value });
+                      if (customerErrors.name) setCustomerErrors({ ...customerErrors, name: '' });
+                    }}
+                    className={`w-full text-xs border rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 ${
+                      customerErrors.name ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                    }`}
+                    placeholder="e.g. Ramesh Patel"
+                  />
+                  {customerErrors.name && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{customerErrors.name}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Company / Enterprise Name</label>
+                  <input
+                    type="text"
+                    value={customerForm.companyName}
+                    onChange={e => {
+                      setCustomerForm({ ...customerForm, companyName: e.target.value });
+                      if (customerErrors.companyName) setCustomerErrors({ ...customerErrors, companyName: '' });
+                    }}
+                    className={`w-full text-xs border rounded-xl p-2.5 ${
+                      customerErrors.companyName ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                    }`}
+                    placeholder="e.g. Acme Polymers Ltd"
+                  />
+                  {customerErrors.companyName && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{customerErrors.companyName}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={customerForm.phone}
+                    onChange={e => {
+                      setCustomerForm({ ...customerForm, phone: e.target.value });
+                      if (customerErrors.phone) setCustomerErrors({ ...customerErrors, phone: '' });
+                    }}
+                    className={`w-full text-xs border rounded-xl p-2.5 ${
+                      customerErrors.phone ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                    }`}
+                    placeholder="+91 98250 12345"
+                  />
+                  {customerErrors.phone && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{customerErrors.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={customerForm.email}
+                    onChange={e => {
+                      setCustomerForm({ ...customerForm, email: e.target.value });
+                      if (customerErrors.email) setCustomerErrors({ ...customerErrors, email: '' });
+                    }}
+                    className={`w-full text-xs border rounded-xl p-2.5 ${
+                      customerErrors.email ? 'border-red-400 bg-red-50/50' : 'border-slate-200'
+                    }`}
+                    placeholder="contact@acme.com"
+                  />
+                  {customerErrors.email && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{customerErrors.email}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Customer Type</label>
+                  <select
+                    value={customerForm.customerType}
+                    onChange={e => setCustomerForm({ ...customerForm, customerType: e.target.value as any })}
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5 bg-white"
+                  >
+                    <option value="Commercial">Commercial</option>
+                    <option value="Industrial">Industrial</option>
+                    <option value="Residential">Residential</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">City / Region</label>
+                  <input
+                    type="text"
+                    value={customerForm.city}
+                    onChange={e => setCustomerForm({ ...customerForm, city: e.target.value })}
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
+                    placeholder="e.g. Ahmedabad"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Site / Factory Address</label>
+                <input
+                  type="text"
+                  value={customerForm.siteAddress}
+                  onChange={e => setCustomerForm({ ...customerForm, siteAddress: e.target.value })}
+                  className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
+                  placeholder="Plot No. 42, GIDC Phase II"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Solar Plant Capacity (kW)</label>
+                  <input
+                    type="number"
+                    value={customerForm.capacityKw}
+                    onChange={e => {
+                      const kw = Number(e.target.value);
+                      setCustomerForm({ ...customerForm, capacityKw: kw, estimatedValue: kw * 50000 });
+                    }}
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Contract Value (₹)</label>
+                  <input
+                    type="number"
+                    value={customerForm.estimatedValue}
+                    onChange={e => setCustomerForm({ ...customerForm, estimatedValue: Number(e.target.value) })}
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCustomerOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-2xs"
+                >
+                  Create Customer & Project
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

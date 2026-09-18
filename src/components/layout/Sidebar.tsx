@@ -28,12 +28,13 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
-  const { activeView, setActiveView, setStageFilterKey } = useApp();
+  const { activeView, setActiveView, setStageFilterKey, activeReportCategory, openReport } = useApp();
   const { currentUser, isCustomer, canAccessModule } = useAuth();
 
   const [crmOpen, setCrmOpen] = useState(true);
   const [salesPurchaseOpen, setSalesPurchaseOpen] = useState(true);
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [reportsOpen, setReportsOpen] = useState(true);
 
   const navigateTo = (view: AppView, stageKey?: string) => {
     if (stageKey) {
@@ -46,17 +47,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
   };
 
   const navItemClass = (isActive: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all select-none ${
+    `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
       isActive
-        ? 'bg-amber-500 text-white shadow-xs font-bold'
-        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+        ? 'bg-amber-500 text-white shadow-xs font-semibold'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
     }`;
 
   const subNavItemClass = (isActive: boolean) =>
-    `flex items-center justify-between pl-9 pr-3 py-2 rounded-lg text-xs transition-colors select-none ${
+    `w-full flex items-center justify-between pl-8 pr-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
       isActive
-        ? 'text-amber-700 bg-amber-50 font-bold'
-        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+        ? 'text-amber-900 bg-amber-50 font-semibold'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
     }`;
 
   return (
@@ -75,11 +76,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-3.5 space-y-6">
+        <div className="p-3.5 space-y-5">
           {/* If customer role, only show Customer Portal options */}
           {isCustomer ? (
             <div className="space-y-1">
-              <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                 Client Portal Access
               </div>
               <button
@@ -119,19 +120,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                 {/* Heart of the System: Customer Control Center */}
                 <button
                   onClick={() => navigateTo('customer_control_center')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
                     activeView === 'customer_control_center'
-                      ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white border-transparent shadow-xs font-bold'
-                      : 'border-amber-200/90 bg-amber-50/60 text-amber-900 hover:bg-amber-100/70'
+                      ? 'bg-amber-500 text-white shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Layers className="w-4 h-4 text-amber-500 group-hover:text-amber-600" />
+                  <div className="flex items-center gap-3">
+                    <Layers className="w-4 h-4 shrink-0" />
                     <span>Control Center</span>
                   </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-wide font-black ${
-                    activeView === 'customer_control_center' ? 'bg-white/20 text-white' : 'bg-amber-200/80 text-amber-900'
-                  }`}>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium tracking-wide ${
+                      activeView === 'customer_control_center'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-amber-100/80 text-amber-800'
+                    }`}
+                  >
                     Core Hub
                   </span>
                 </button>
@@ -142,10 +147,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                 <div className="space-y-1">
                   <div
                     onClick={() => setCrmOpen(!crmOpen)}
-                    className="flex items-center justify-between px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600"
+                    className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
                   >
                     <span>CRM & Sales</span>
-                    {crmOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    {crmOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                   </div>
 
                   {crmOpen && (
@@ -181,22 +186,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                       navigateTo('sales_purchase');
                       setSalesPurchaseOpen(true);
                     }}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                      [
-                        'sales_purchase',
-                        'sales_bom',
-                        'sales_invoices',
-                        'purchase_vendors',
-                        'purchase_orders',
-                        'inventory_products',
-                        'inventory_stock'
-                      ].includes(activeView)
-                        ? 'bg-amber-500/10 text-amber-900 border border-amber-300/60'
-                        : 'text-slate-700 hover:bg-slate-100/70'
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer select-none ${
+                      activeView === 'sales_purchase'
+                        ? 'bg-amber-500 text-white shadow-xs font-semibold'
+                        : [
+                            'sales_bom',
+                            'sales_invoices',
+                            'purchase_vendors',
+                            'purchase_orders',
+                            'inventory_products',
+                            'inventory_stock'
+                          ].includes(activeView)
+                        ? 'text-amber-900 bg-amber-50/70 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4 text-amber-500" />
+                    <div className="flex items-center gap-3">
+                      <ShoppingCart className="w-4 h-4 shrink-0" />
                       <span>Sales & Purchase</span>
                     </div>
                     <button
@@ -205,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                         e.stopPropagation();
                         setSalesPurchaseOpen(!salesPurchaseOpen);
                       }}
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                      className="p-0.5 rounded text-current opacity-70 hover:opacity-100 transition-opacity"
                       aria-label="Toggle Sales & Purchase menu"
                     >
                       {salesPurchaseOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -213,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                   </div>
 
                   {salesPurchaseOpen && (
-                    <div className="space-y-0.5 pl-2 border-l border-amber-200/80 ml-3">
+                    <div className="space-y-0.5">
                       <button
                         onClick={() => navigateTo('sales_purchase')}
                         className={subNavItemClass(activeView === 'sales_purchase')}
@@ -265,10 +271,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               <div className="space-y-1">
                 <div
                   onClick={() => setProjectsOpen(!projectsOpen)}
-                  className="flex items-center justify-between px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600"
+                  className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
                 >
                   <span>Project Operations</span>
-                  {projectsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                  {projectsOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                 </div>
 
                 {projectsOpen && (
@@ -292,7 +298,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               {/* Accounting & Finance */}
               {canAccessModule('finance') && (
                 <div className="space-y-1">
-                  <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     Finance & Accounts
                   </div>
                   <button
@@ -308,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               {/* HRMS */}
               {canAccessModule('hrms') && (
                 <div className="space-y-1">
-                  <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     Human Resources
                   </div>
                   <button
@@ -324,7 +330,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               {/* Service & AMC */}
               {canAccessModule('service') && (
                 <div className="space-y-1">
-                  <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     Post-Commissioning
                   </div>
                   <button
@@ -340,16 +346,137 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               {/* Reports */}
               {canAccessModule('reports') && (
                 <div className="space-y-1">
-                  <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Intelligence
-                  </div>
-                  <button
-                    onClick={() => navigateTo('reports')}
-                    className={navItemClass(activeView === 'reports')}
+                  <div
+                    onClick={() => {
+                      if (!reportsOpen) setReportsOpen(true);
+                      openReport(activeReportCategory || 'sales');
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer select-none ${
+                      activeView === 'reports'
+                        ? 'text-amber-900 bg-amber-50/70 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
+                    }`}
                   >
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Analytics & Reports</span>
-                  </button>
+                    <div className="flex items-center gap-3">
+                      <BarChart3 className="w-4 h-4 shrink-0" />
+                      <span>Reports</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReportsOpen(!reportsOpen);
+                      }}
+                      className="p-0.5 rounded text-current opacity-70 hover:opacity-100 transition-opacity"
+                      aria-label="Toggle Reports menu"
+                    >
+                      {reportsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {reportsOpen && (
+                    <div className="space-y-0.5">
+                      <button
+                        onClick={() => {
+                          openReport('sales');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'sales')}
+                      >
+                        <span>Sales Report</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('purchase');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'purchase')}
+                      >
+                        <span>Purchase Report</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('product_stock');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'product_stock')}
+                      >
+                        <span>Product Stock Report</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('customer_ledger');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'customer_ledger')}
+                      >
+                        <span>Customer Ledger</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('vendor_ledger');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'vendor_ledger')}
+                      >
+                        <span>Vendor Ledger</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('income_summary');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'income_summary')}
+                      >
+                        <span>Income Summary</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('expense_summary');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'expense_summary')}
+                      >
+                        <span>Expense Summary</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('payroll');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'payroll')}
+                      >
+                        <span>Payroll Report</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('monthly_attendance');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'monthly_attendance')}
+                      >
+                        <span>Monthly Attendance</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('leads');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'leads')}
+                      >
+                        <span>Leads Report</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openReport('projects');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'reports' && activeReportCategory === 'projects')}
+                      >
+                        <span>Project Report</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -369,10 +496,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
           )}
 
           {/* Quick Info card at bottom of sidebar */}
-          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+          <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
               <span>Firebase Auth</span>
-              <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-sm font-semibold">Active</span>
+              <span className="text-[10px] text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded font-medium">Active</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-tight">
               Session is secured with Firebase Auth. Operational permissions are enforced across all modules.

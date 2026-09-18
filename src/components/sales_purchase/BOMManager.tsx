@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
 import { BillOfMaterials, BOMItem, ProductItem, SolarProject } from '../../types/solar';
+import { validateBOM, validateBOMLineItems, DuplicateRecordError } from '../../services/validation';
 import {
   Layers,
   Plus,
@@ -35,6 +36,8 @@ export const BOMManager: React.FC = () => {
   const [formVersion, setFormVersion] = useState('v1.0');
   const [formNotes, setFormNotes] = useState('');
   const [formItems, setFormItems] = useState<Omit<BOMItem, 'id'>[]>([]);
+  const [bomError, setBOMError] = useState<string>('');
+  const [lineItemError, setLineItemError] = useState<string>('');
 
   // Item currently being added in modal
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -60,12 +63,16 @@ export const BOMManager: React.FC = () => {
 
   // Handle adding line item to the draft form
   const handleAddLineItem = () => {
-    if (!selectedProductId && !customDescription) {
+    setLineItemError('');
+
+    if (!selectedProductId && !customDescription.trim()) {
+      setLineItemError('Please select a product from catalog or enter a description.');
       showToast('Please select a product from catalog or enter a description', 'warning');
       return;
     }
 
     if (itemRequiredQty <= 0) {
+      setLineItemError('Quantity must be greater than zero.');
       showToast('Quantity must be greater than zero', 'warning');
       return;
     }
@@ -74,7 +81,7 @@ export const BOMManager: React.FC = () => {
 
     const newItem: Omit<BOMItem, 'id'> = {
       productId: prod?.id,
-      productName: prod ? prod.name : customDescription,
+      productName: prod ? prod.name : customDescription.trim(),
       sku: prod ? prod.sku : `CUSTOM-${Date.now()}`,
       category: prod ? prod.category : 'General',
       requiredQty: itemRequiredQty,
@@ -85,25 +92,40 @@ export const BOMManager: React.FC = () => {
       status: 'PENDING'
     };
 
+    // Pre-validate for duplicate line item
+    const dummyCandidate: BOMItem = { ...newItem, id: 'temp-new-item' };
+    const dummyExisting: BOMItem[] = formItems.map((it, idx) => ({ ...it, id: `item-${idx}` }));
+    const lineValidation = validateBOMLineItems([...dummyExisting, dummyCandidate]);
+    if (!lineValidation.valid) {
+      setLineItemError(lineValidation.message);
+      showToast(lineValidation.message, 'warning');
+      return;
+    }
+
     setFormItems(prev => [...prev, newItem]);
     setSelectedProductId('');
     setItemRequiredQty(1);
     setCustomDescription('');
+    setLineItemError('');
   };
 
   const handleRemoveLineItem = (index: number) => {
     setFormItems(prev => prev.filter((_, i) => i !== index));
+    setLineItemError('');
   };
 
   const handleSaveBOM = (e: React.FormEvent) => {
     e.preventDefault();
+    setBOMError('');
 
     if (!formProjectId) {
+      setBOMError('Please select a project for this BOM.');
       showToast('Please select a project for this BOM', 'warning');
       return;
     }
 
     if (formItems.length === 0) {
+      setBOMError('Please add at least one line item to the BOM.');
       showToast('Please add at least one line item to the BOM', 'warning');
       return;
     }
@@ -121,7 +143,7 @@ export const BOMManager: React.FC = () => {
       projectTitle: project.title,
       customerName: project.customerName,
       capacityKw: project.capacityKw || 10,
-      version: formVersion || 'v1.0',
+      version: formVersion.trim() || 'v1.0',
       status: 'DRAFT',
       stockAllocated: false,
       items: formItems.map((it, idx) => ({
@@ -135,16 +157,32 @@ export const BOMManager: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    storageService.saveBOM(newBOM);
-    triggerRefresh();
-    showToast(`Bill of Materials ${newBOM.bomNumber} created successfully`, 'success');
-    setIsCreateModalOpen(false);
+    // Pre-validate duplicate BOM version for project and duplicate line items
+    const bomCheck = validateBOM(newBOM, boms);
+    if (!bomCheck.valid) {
+      setBOMError(bomCheck.message);
+      showToast(bomCheck.message, 'error');
+      return;
+    }
 
-    // Reset modal form
-    setFormProjectId('');
-    setFormVersion('v1.0');
-    setFormNotes('');
-    setFormItems([]);
+    try {
+      storageService.saveBOM(newBOM);
+      triggerRefresh();
+      showToast(`Bill of Materials ${newBOM.bomNumber} created successfully`, 'success');
+      setIsCreateModalOpen(false);
+
+      // Reset modal form
+      setFormProjectId('');
+      setFormVersion('v1.0');
+      setFormNotes('');
+      setFormItems([]);
+      setBOMError('');
+      setLineItemError('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create Bill of Materials';
+      setBOMError(msg);
+      showToast(msg, 'error');
+    }
   };
 
   // Stock allocation handler
@@ -423,6 +461,12 @@ export const BOMManager: React.FC = () => {
 
             {/* Modal Body */}
             <form onSubmit={handleSaveBOM} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {bomError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+                  {bomError}
+                </div>
+              )}
+
               {/* Project & Version Selection */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
@@ -515,6 +559,12 @@ export const BOMManager: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {lineItemError && (
+                  <p className="text-[11px] text-red-600 font-medium bg-red-50 p-2 rounded-lg border border-red-200">
+                    {lineItemError}
+                  </p>
+                )}
 
                 {/* Alternatively allow manual description */}
                 {!selectedProductId && (

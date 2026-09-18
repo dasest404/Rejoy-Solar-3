@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { storageService } from '../../services/storage';
 import { ProductItem, Vendor } from '../../types/solar';
+import { validateProduct, DuplicateRecordError } from '../../services/validation';
 import {
   Package,
   Plus,
@@ -24,6 +25,7 @@ export const ProductCatalog: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Form states
   const [formSku, setFormSku] = useState('');
@@ -67,6 +69,7 @@ export const ProductCatalog: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setFormErrors({});
     setFormSku(`PRD-${Date.now().toString().slice(-4)}`);
     setFormName('');
     setFormCategory('Solar Panels');
@@ -85,6 +88,7 @@ export const ProductCatalog: React.FC = () => {
 
   const handleOpenEdit = (p: ProductItem) => {
     setEditingProduct(p);
+    setFormErrors({});
     setFormSku(p.sku);
     setFormName(p.name);
     setFormCategory(p.category);
@@ -103,8 +107,14 @@ export const ProductCatalog: React.FC = () => {
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
 
-    if (!formSku.trim() || !formName.trim()) {
+    const errs: Record<string, string> = {};
+    if (!formSku.trim()) errs.sku = 'SKU code is required';
+    if (!formName.trim()) errs.name = 'Product name is required';
+
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
       showToast('SKU and Product Name are required', 'warning');
       return;
     }
@@ -131,13 +141,29 @@ export const ProductCatalog: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    storageService.saveProduct(productToSave);
-    triggerRefresh();
-    showToast(
-      `Product ${productToSave.sku} ${editingProduct ? 'updated' : 'added'} to catalog`,
-      'success'
-    );
-    setIsModalOpen(false);
+    // Pre-validate for duplicates
+    const dupCheck = validateProduct(productToSave, products, editingProduct?.id);
+    if (!dupCheck.valid) {
+      setFormErrors({ [dupCheck.field || 'general']: dupCheck.message });
+      showToast(dupCheck.message, 'error');
+      return;
+    }
+
+    try {
+      storageService.saveProduct(productToSave);
+      triggerRefresh();
+      showToast(
+        `Product ${productToSave.sku} ${editingProduct ? 'updated' : 'added'} to catalog`,
+        'success'
+      );
+      setIsModalOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save product';
+      showToast(msg, 'error');
+      if (err instanceof DuplicateRecordError) {
+        setFormErrors({ [err.field]: err.message });
+      }
+    }
   };
 
   const handleDeleteProduct = (id: string, name: string) => {
@@ -366,6 +392,12 @@ export const ProductCatalog: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-6 space-y-4">
+              {formErrors.general && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium">
+                  {formErrors.general}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">SKU Code *</label>
@@ -373,10 +405,18 @@ export const ProductCatalog: React.FC = () => {
                     type="text"
                     required
                     value={formSku}
-                    onChange={e => setFormSku(e.target.value.toUpperCase())}
+                    onChange={e => {
+                      setFormSku(e.target.value.toUpperCase());
+                      if (formErrors.sku) setFormErrors(prev => ({ ...prev, sku: '' }));
+                    }}
                     placeholder="MOD-WAA-540"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-mono"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl font-mono ${
+                      formErrors.sku ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.sku && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.sku}</p>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2">
@@ -387,10 +427,18 @@ export const ProductCatalog: React.FC = () => {
                     type="text"
                     required
                     value={formName}
-                    onChange={e => setFormName(e.target.value)}
+                    onChange={e => {
+                      setFormName(e.target.value);
+                      if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                    }}
                     placeholder="e.g. Waaree 540Wp Bifacial Solar Module"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
+                    className={`w-full px-3 py-2 text-xs bg-white border rounded-xl ${
+                      formErrors.name ? 'border-red-400 bg-red-50/30' : 'border-slate-300'
+                    }`}
                   />
+                  {formErrors.name && (
+                    <p className="text-[11px] text-red-600 font-medium mt-1">{formErrors.name}</p>
+                  )}
                 </div>
               </div>
 
