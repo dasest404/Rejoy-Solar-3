@@ -19,7 +19,8 @@ import {
   ExternalLink,
   ShieldAlert,
   ArrowRight,
-  ShoppingCart
+  ShoppingCart,
+  ShieldCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,13 +29,22 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
-  const { activeView, setActiveView, setStageFilterKey, activeReportCategory, openReport } = useApp();
+  const {
+    activeView,
+    setActiveView,
+    setStageFilterKey,
+    activeReportCategory,
+    openReport,
+    activeSettingsTab,
+    openSettingsTab
+  } = useApp();
   const { currentUser, isCustomer, canAccessModule } = useAuth();
 
   const [crmOpen, setCrmOpen] = useState(true);
   const [salesPurchaseOpen, setSalesPurchaseOpen] = useState(true);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [reportsOpen, setReportsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(true);
 
   const navigateTo = (view: AppView, stageKey?: string) => {
     if (stageKey) {
@@ -485,16 +495,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                 </div>
               )}
 
-              {/* System Settings */}
+              {/* System Settings & Tally */}
               {canAccessModule('settings') && (
                 <div className="space-y-1 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => navigateTo('settings')}
-                    className={navItemClass(activeView === 'settings')}
+                  <div
+                    onClick={() => {
+                      openSettingsTab(activeSettingsTab || 'general');
+                      onCloseMobile();
+                    }}
+                    className={`cursor-pointer flex items-center justify-between ${navItemClass(activeView === 'settings')}`}
                   >
-                    <Settings className="w-4 h-4" />
-                    <span>System Settings & Tally</span>
-                  </button>
+                    <div className="flex items-center gap-2.5">
+                      <Settings className="w-4 h-4" />
+                      <span>System Settings & Tally</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSettingsOpen(!settingsOpen);
+                      }}
+                      className="p-0.5 rounded text-current opacity-70 hover:opacity-100 transition-opacity"
+                      aria-label="Toggle Settings menu"
+                    >
+                      {settingsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {settingsOpen && (
+                    <div className="space-y-0.5 pl-2">
+                      <button
+                        onClick={() => {
+                          openSettingsTab('general');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'settings' && activeSettingsTab === 'general')}
+                      >
+                        <span>General & EPC Profile</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openSettingsTab('tally');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'settings' && activeSettingsTab === 'tally')}
+                      >
+                        <span>Tally Prime Integration</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openSettingsTab('whatsapp');
+                          onCloseMobile();
+                        }}
+                        className={subNavItemClass(activeView === 'settings' && activeSettingsTab === 'whatsapp')}
+                      >
+                        <span>WhatsApp Cloud API</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          openSettingsTab('acl');
+                          onCloseMobile();
+                        }}
+                        className={`${subNavItemClass(activeView === 'settings' && activeSettingsTab === 'acl')} flex items-center justify-between`}
+                      >
+                        <span className="flex items-center gap-1.5 font-bold text-purple-700">
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                          Role-Based Access Control
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                          ACL
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>

@@ -209,6 +209,33 @@ export type ProjectStatus =
   | 'DELAYED'
   | 'ON HOLD';
 
+export type ProjectAssignmentRole =
+  | 'Site Survey Engineer'
+  | 'Civil Team'
+  | 'Structure Team'
+  | 'Installation Team'
+  | 'Electrical Team'
+  | 'Technician'
+  | 'Sales Executive'
+  | 'Accountant'
+  | 'Service Manager'
+  | 'Other';
+
+export interface ProjectUserAssignment {
+  id: string;
+  projectId: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  employeeCode?: string;
+  role: ProjectAssignmentRole;
+  department: string;
+  assignedAt: string;
+  assignedBy: string;
+  notes?: string;
+  isActive: boolean;
+}
+
 export interface SolarProject {
   id: string;
   projectCode: string;
@@ -220,8 +247,9 @@ export interface SolarProject {
   status: ProjectStatus;
   currentStageKey: WorkflowStageKey;
   completionPercentage: number;
-  projectManagerId: string;
-  projectManagerName: string;
+  projectManagerId?: string;
+  projectManagerName?: string;
+  assignedUsers?: ProjectUserAssignment[];
   siteAddress: string;
   city: string;
   location?: string;
@@ -355,6 +383,7 @@ export interface Employee {
   photoUrl: string;
   department: 'Management' | 'Sales' | 'Engineering' | 'Civil' | 'Structure' | 'Electrical' | 'Operations' | 'Finance' | 'HR' | 'Service' | 'Installation';
   designation: string;
+  assignedRole?: UserRole;
   phone: string;
   email: string;
   joiningDate: string;

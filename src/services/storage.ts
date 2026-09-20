@@ -1,5 +1,7 @@
 import {
   SolarProject,
+  ProjectAssignmentRole,
+  ProjectUserAssignment,
   Customer,
   Lead,
   ProjectStage,
@@ -30,8 +32,11 @@ import {
   BOMItem,
   SalesInvoice,
   InvoiceLineItem,
-  StockMovement
+  StockMovement,
+  UserRole
 } from '../types/solar';
+import { SystemAclConfig, AclAuditLogEntry } from '../types/acl';
+import { DEFAULT_SYSTEM_ACL_CONFIG } from './aclDefaults';
 import { buildStandardWorkflowStages, WorkflowProgressLevel } from './workflowStages';
 import {
   validateCustomer,
@@ -39,6 +44,9 @@ import {
   validateVendor,
   validateEmployee,
   validateBOM,
+  validatePurchaseOrder,
+  validatePOLineItems,
+  validatePOLineItem,
   assertValid,
   DuplicateRecordError
 } from './validation';
@@ -49,7 +57,10 @@ export {
   validateProduct,
   validateVendor,
   validateEmployee,
-  validateBOM
+  validateBOM,
+  validatePurchaseOrder,
+  validatePOLineItems,
+  validatePOLineItem
 };
 
 const STORAGE_KEYS = {
@@ -74,7 +85,36 @@ const STORAGE_KEYS = {
   BOMS: 'solar_erp_boms_v2',
   SALES_INVOICES: 'solar_erp_sales_invoices_v2',
   STOCK_MOVEMENTS: 'solar_erp_stock_movements_v2',
+  ACL_CONFIG: 'solar_erp_acl_config_v2',
+  ACL_AUDIT_LOGS: 'solar_erp_acl_audit_logs_v2',
 };
+
+const initialAclAuditLogs: AclAuditLogEntry[] = [
+  {
+    id: 'log-1',
+    timestamp: '2026-09-18T10:30:00Z',
+    changedBy: 'Vikram Patel (Super Admin)',
+    targetRole: 'Project Manager',
+    action: 'UPDATE_PERMISSIONS',
+    summary: 'Granted stage closure sign-off and BOM customization authority'
+  },
+  {
+    id: 'log-2',
+    timestamp: '2026-09-15T14:15:00Z',
+    changedBy: 'Ananya Sharma (Admin)',
+    targetRole: 'Site Survey Engineer',
+    action: 'UPDATE_PERMISSIONS',
+    summary: 'Restricted financial ledger view; verified GPS upload permission'
+  },
+  {
+    id: 'log-3',
+    timestamp: '2026-09-10T09:00:00Z',
+    changedBy: 'Vikram Patel (Super Admin)',
+    targetRole: 'Super Admin',
+    action: 'RESET_ROLE',
+    summary: 'Initialized baseline Solar EPC security matrix across all 15 operational tiers'
+  }
+];
 
 // Initial realistic data
 const initialEmployees: Employee[] = [
@@ -436,6 +476,106 @@ const initialProjects: SolarProject[] = [
     completionPercentage: 68,
     projectManagerId: 'emp-2',
     projectManagerName: 'Amit Sharma',
+    assignedUsers: [
+      {
+        id: 'asgn-1-1',
+        projectId: 'proj-1',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Site Survey Engineer',
+        department: 'Engineering',
+        assignedAt: '2026-08-10T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Conducted detailed structural load calculation, drone 3D rooftop survey, and obstruction mapping.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-2',
+        projectId: 'proj-1',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Civil Team',
+        department: 'Civil',
+        assignedAt: '2026-08-11T11:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'RCC foundation curing, pedestal waterproofing, and anchor pull-out test sign-off.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-3',
+        projectId: 'proj-1',
+        userId: 'emp-6',
+        userName: 'Dinesh Yadav',
+        userEmail: 'dinesh.yadav@solarpulse.com',
+        employeeCode: 'EMP006',
+        role: 'Structure Team',
+        department: 'Structure',
+        assignedAt: '2026-08-12T09:30:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Supervising 22° south-facing HDG structure fabrication and torque tightening.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-4',
+        projectId: 'proj-1',
+        userId: 'emp-7',
+        userName: 'Manoj Tiwari',
+        userEmail: 'manoj.tiwari@solarpulse.com',
+        employeeCode: 'EMP007',
+        role: 'Installation Team',
+        department: 'Installation',
+        assignedAt: '2026-08-15T08:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Overseeing Waaree 540Wp Mono PERC bifacial module clamping and safety harness compliance.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-5',
+        projectId: 'proj-1',
+        userId: 'emp-8',
+        userName: 'Ankit Joshi',
+        userEmail: 'ankit.joshi@solarpulse.com',
+        employeeCode: 'EMP008',
+        role: 'Electrical Team',
+        department: 'Electrical',
+        assignedAt: '2026-08-16T14:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Sungrow 110CX string inverter termination, DCDB/ACDB breaker panels, and chemical earth pits.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-6',
+        projectId: 'proj-1',
+        userId: 'emp-12',
+        userName: 'Ketan Solanki',
+        userEmail: 'ketan.solanki@solarpulse.com',
+        employeeCode: 'EMP012',
+        role: 'Technician',
+        department: 'Service',
+        assignedAt: '2026-08-18T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Pre-commissioning insulation resistance testing, string VOC measurement, and cable dressing.',
+        isActive: true
+      },
+      {
+        id: 'asgn-1-7',
+        projectId: 'proj-1',
+        userId: 'emp-5',
+        userName: 'Rahul Mehta',
+        userEmail: 'rahul.mehta@solarpulse.com',
+        employeeCode: 'EMP005',
+        role: 'Sales Executive',
+        department: 'Sales',
+        assignedAt: '2026-08-08T16:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Client account relationship and industrial EPC contract coordinator.',
+        isActive: true
+      }
+    ],
     siteAddress: 'Plot No. 42-45, GIDC Industrial Estate, Sanand, Ahmedabad',
     city: 'Ahmedabad',
     startDate: '2026-08-12',
@@ -458,6 +598,78 @@ const initialProjects: SolarProject[] = [
     completionPercentage: 35,
     projectManagerId: 'emp-2',
     projectManagerName: 'Amit Sharma',
+    assignedUsers: [
+      {
+        id: 'asgn-2-1',
+        projectId: 'proj-2',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Site Survey Engineer',
+        department: 'Engineering',
+        assignedAt: '2026-08-14T11:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Detailed roof load audit for spinning mill shed.',
+        isActive: true
+      },
+      {
+        id: 'asgn-2-2',
+        projectId: 'proj-2',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Civil Team',
+        department: 'Civil',
+        assignedAt: '2026-08-15T12:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Structural steel foundation casting and roof member bracing.',
+        isActive: true
+      },
+      {
+        id: 'asgn-2-3',
+        projectId: 'proj-2',
+        userId: 'emp-6',
+        userName: 'Dinesh Yadav',
+        userEmail: 'dinesh.yadav@solarpulse.com',
+        employeeCode: 'EMP006',
+        role: 'Structure Team',
+        department: 'Structure',
+        assignedAt: '2026-08-16T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Heavy duty C-channel structure fabrication for 250 kW plant.',
+        isActive: true
+      },
+      {
+        id: 'asgn-2-4',
+        projectId: 'proj-2',
+        userId: 'emp-8',
+        userName: 'Ankit Joshi',
+        userEmail: 'ankit.joshi@solarpulse.com',
+        employeeCode: 'EMP008',
+        role: 'Electrical Team',
+        department: 'Electrical',
+        assignedAt: '2026-08-18T15:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'High tension 11kV evacuation and transformer synchronization design.',
+        isActive: true
+      },
+      {
+        id: 'asgn-2-5',
+        projectId: 'proj-2',
+        userId: 'emp-4',
+        userName: 'Priya Verma',
+        userEmail: 'priya.verma@solarpulse.com',
+        employeeCode: 'EMP004',
+        role: 'Sales Executive',
+        department: 'Sales',
+        assignedAt: '2026-08-12T14:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Commercial sales lead and PPA contract specialist.',
+        isActive: true
+      }
+    ],
     siteAddress: 'Survey No. 118, NH-48, Sachin, Surat',
     city: 'Surat',
     startDate: '2026-08-15',
@@ -480,6 +692,50 @@ const initialProjects: SolarProject[] = [
     completionPercentage: 20,
     projectManagerId: 'emp-2',
     projectManagerName: 'Amit Sharma',
+    assignedUsers: [
+      {
+        id: 'asgn-3-1',
+        projectId: 'proj-3',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Site Survey Engineer',
+        department: 'Engineering',
+        assignedAt: '2026-08-21T09:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Completed survey of hospital terrace and generator interlock layout.',
+        isActive: true
+      },
+      {
+        id: 'asgn-3-2',
+        projectId: 'proj-3',
+        userId: 'emp-8',
+        userName: 'Ankit Joshi',
+        userEmail: 'ankit.joshi@solarpulse.com',
+        employeeCode: 'EMP008',
+        role: 'Electrical Team',
+        department: 'Electrical',
+        assignedAt: '2026-08-22T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Zero export and DG synchronization design.',
+        isActive: true
+      },
+      {
+        id: 'asgn-3-3',
+        projectId: 'proj-3',
+        userId: 'emp-5',
+        userName: 'Rahul Mehta',
+        userEmail: 'rahul.mehta@solarpulse.com',
+        employeeCode: 'EMP005',
+        role: 'Sales Executive',
+        department: 'Sales',
+        assignedAt: '2026-08-20T14:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Hospital administration coordinator.',
+        isActive: true
+      }
+    ],
     siteAddress: 'Ring Road, Bodakdev, Ahmedabad',
     city: 'Ahmedabad',
     startDate: '2026-08-22',
@@ -502,6 +758,78 @@ const initialProjects: SolarProject[] = [
     completionPercentage: 100,
     projectManagerId: 'emp-2',
     projectManagerName: 'Amit Sharma',
+    assignedUsers: [
+      {
+        id: 'asgn-4-1',
+        projectId: 'proj-4',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Site Survey Engineer',
+        department: 'Engineering',
+        assignedAt: '2026-06-25T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Initial warehouse roof assessment and shadow study.',
+        isActive: true
+      },
+      {
+        id: 'asgn-4-2',
+        projectId: 'proj-4',
+        userId: 'emp-7',
+        userName: 'Manoj Tiwari',
+        userEmail: 'manoj.tiwari@solarpulse.com',
+        employeeCode: 'EMP007',
+        role: 'Installation Team',
+        department: 'Installation',
+        assignedAt: '2026-07-05T09:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Installation lead for trapezoidal sheet mounting clamps.',
+        isActive: true
+      },
+      {
+        id: 'asgn-4-3',
+        projectId: 'proj-4',
+        userId: 'emp-8',
+        userName: 'Ankit Joshi',
+        userEmail: 'ankit.joshi@solarpulse.com',
+        employeeCode: 'EMP008',
+        role: 'Electrical Team',
+        department: 'Electrical',
+        assignedAt: '2026-07-15T11:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Commissioning of dual 25kW solar inverters.',
+        isActive: true
+      },
+      {
+        id: 'asgn-4-4',
+        projectId: 'proj-4',
+        userId: 'emp-11',
+        userName: 'Rohit Verma',
+        userEmail: 'rohit.verma@solarpulse.com',
+        employeeCode: 'EMP011',
+        role: 'Service Manager',
+        department: 'Service',
+        assignedAt: '2026-08-29T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Active Gold AMC contract manager and quarterly inspection coordinator.',
+        isActive: true
+      },
+      {
+        id: 'asgn-4-5',
+        projectId: 'proj-4',
+        userId: 'emp-12',
+        userName: 'Ketan Solanki',
+        userEmail: 'ketan.solanki@solarpulse.com',
+        employeeCode: 'EMP012',
+        role: 'Technician',
+        department: 'Service',
+        assignedAt: '2026-08-29T11:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Regular panel wash cycle and thermal hotspot inspection.',
+        isActive: true
+      }
+    ],
     siteAddress: 'Warehousing Zone, Changodar, Ahmedabad',
     city: 'Ahmedabad',
     startDate: '2026-07-01',
@@ -525,6 +853,78 @@ const initialProjects: SolarProject[] = [
     completionPercentage: 58,
     projectManagerId: 'emp-2',
     projectManagerName: 'Amit Sharma',
+    assignedUsers: [
+      {
+        id: 'asgn-5-1',
+        projectId: 'proj-5',
+        userId: 'emp-3',
+        userName: 'Rajesh Kumar',
+        userEmail: 'rajesh.kumar@solarpulse.com',
+        employeeCode: 'EMP003',
+        role: 'Site Survey Engineer',
+        department: 'Engineering',
+        assignedAt: '2026-07-05T08:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Puff panel roof safety survey and walk-way path planning.',
+        isActive: true
+      },
+      {
+        id: 'asgn-5-2',
+        projectId: 'proj-5',
+        userId: 'emp-6',
+        userName: 'Dinesh Yadav',
+        userEmail: 'dinesh.yadav@solarpulse.com',
+        employeeCode: 'EMP006',
+        role: 'Structure Team',
+        department: 'Structure',
+        assignedAt: '2026-07-12T09:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Non-penetrating clamp structure mounting.',
+        isActive: true
+      },
+      {
+        id: 'asgn-5-3',
+        projectId: 'proj-5',
+        userId: 'emp-7',
+        userName: 'Manoj Tiwari',
+        userEmail: 'manoj.tiwari@solarpulse.com',
+        employeeCode: 'EMP007',
+        role: 'Installation Team',
+        department: 'Installation',
+        assignedAt: '2026-07-20T10:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Solar module placement and string looping.',
+        isActive: true
+      },
+      {
+        id: 'asgn-5-4',
+        projectId: 'proj-5',
+        userId: 'emp-8',
+        userName: 'Ankit Joshi',
+        userEmail: 'ankit.joshi@solarpulse.com',
+        employeeCode: 'EMP008',
+        role: 'Electrical Team',
+        department: 'Electrical',
+        assignedAt: '2026-07-25T14:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Discom bi-directional meter coordination & CEIG liaison.',
+        isActive: true
+      },
+      {
+        id: 'asgn-5-5',
+        projectId: 'proj-5',
+        userId: 'emp-12',
+        userName: 'Ketan Solanki',
+        userEmail: 'ketan.solanki@solarpulse.com',
+        employeeCode: 'EMP012',
+        role: 'Technician',
+        department: 'Service',
+        assignedAt: '2026-08-01T11:00:00Z',
+        assignedBy: 'System Admin',
+        notes: 'Field earthing verification and meter cabinet wiring.',
+        isActive: true
+      }
+    ],
     siteAddress: 'Mahuva Highway, Talaja Road, Bhavnagar',
     city: 'Bhavnagar',
     startDate: '2026-07-10',
@@ -2316,8 +2716,21 @@ class StorageService {
       completionPercentage: 0,
       progressPercentage: 0,
       location: lead.city,
-      projectManagerId: 'emp-2',
-      projectManagerName: convertedByName || 'Amit Sharma',
+      assignedUsers: [
+        {
+          id: `asgn-${Date.now()}-lead`,
+          projectId: projectId,
+          userId: 'emp-5',
+          userName: convertedByName || 'Rahul Mehta',
+          employeeCode: 'EMP005',
+          role: 'Sales Executive',
+          department: 'Sales',
+          assignedAt: new Date().toISOString(),
+          assignedBy: convertedByName || 'System Admin',
+          notes: 'Lead conversion and client account coordination',
+          isActive: true
+        }
+      ],
       siteAddress: lead.address,
       city: lead.city,
       startDate: new Date().toISOString().split('T')[0],
@@ -2407,8 +2820,7 @@ class StorageService {
       completionPercentage: 0,
       progressPercentage: 0,
       location: customerData.city || 'Ahmedabad',
-      projectManagerId: 'emp-2',
-      projectManagerName: createdByName,
+      assignedUsers: [],
       siteAddress: customerData.siteAddress || '',
       city: customerData.city || 'Ahmedabad',
       startDate: new Date().toISOString().split('T')[0],
@@ -2466,6 +2878,29 @@ class StorageService {
     const sanitized = rawProjects.map(project => {
       let hasIncompletePriorStage = false;
       let stagesChanged = false;
+
+      // Self-healing migration for multi-user project assignments:
+      if (!project.assignedUsers || !Array.isArray(project.assignedUsers) || project.assignedUsers.length === 0) {
+        const defaultMatch = initialProjects.find(ip => ip.id === project.id);
+        if (defaultMatch?.assignedUsers && defaultMatch.assignedUsers.length > 0) {
+          project.assignedUsers = JSON.parse(JSON.stringify(defaultMatch.assignedUsers));
+          mutated = true;
+        } else if (!project.assignedUsers) {
+          project.assignedUsers = [];
+          mutated = true;
+        }
+      }
+
+      // Ensure administrative/finance assignments are cleaned up from project specialist lists
+      if (project.assignedUsers && Array.isArray(project.assignedUsers)) {
+        const beforeLen = project.assignedUsers.length;
+        project.assignedUsers = project.assignedUsers.filter(
+          a => a.role !== 'Accountant' && a.department !== 'Finance'
+        );
+        if (project.assignedUsers.length !== beforeLen) {
+          mutated = true;
+        }
+      }
 
       const cleanedStages = project.stages.map((stage, idx) => {
         if (idx === 0) {
@@ -2537,6 +2972,217 @@ class StorageService {
       projects.unshift({ ...project, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.PROJECTS, projects);
+  }
+
+  // --- Multi-User Project Assignments ---
+  getProjectAssignments(projectId: string): ProjectUserAssignment[] {
+    const project = this.getProjectById(projectId);
+    return project?.assignedUsers || [];
+  }
+
+  assignUserToProject(
+    projectId: string,
+    assignmentData: {
+      userId: string;
+      userName: string;
+      userEmail?: string;
+      employeeCode?: string;
+      role: ProjectAssignmentRole;
+      department: string;
+      notes?: string;
+      autoSyncStages?: boolean;
+    },
+    assignedByName: string = 'Admin'
+  ): ProjectUserAssignment {
+    const projects = this.getProjects();
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      throw new Error(`Project with ID ${projectId} not found.`);
+    }
+
+    // Explicitly validate role is an eligible project specialist role
+    if (
+      assignmentData.role === 'Accountant' ||
+      (assignmentData.role as string) === 'Super Admin' ||
+      (assignmentData.role as string) === 'Admin' ||
+      (assignmentData.role as string) === 'HR Manager' ||
+      (assignmentData.role as string) === 'Customer'
+    ) {
+      throw new Error(`Role "${assignmentData.role}" is not eligible for project specialist assignment. Only field, technical, service, or sales coordination specialists may be assigned.`);
+    }
+
+    // Explicitly validate that employee is not an excluded user (Super Admin, Admin, Accountant, HR Manager, Customer)
+    const emp = this.getEmployees().find(e => e.id === assignmentData.userId);
+    if (emp) {
+      const desig = (emp.designation || '').toLowerCase().trim();
+      const dept = (emp.department || '').toLowerCase().trim();
+      if (
+        desig.includes('super admin') ||
+        desig.includes('superadmin') ||
+        desig.includes('managing director') ||
+        desig === 'admin' ||
+        desig.includes('admin ') ||
+        desig.includes(' admin') ||
+        desig.includes('administrator') ||
+        desig.includes('accountant') ||
+        desig.includes('finance') ||
+        desig.includes('tally') ||
+        desig.includes('hr manager') ||
+        desig.includes('human resource') ||
+        desig.includes('hr & admin') ||
+        desig.includes('customer') ||
+        desig.includes('client') ||
+        dept === 'management' ||
+        dept === 'finance' ||
+        dept === 'hr' ||
+        dept === 'customer' ||
+        dept === 'administration' ||
+        (dept === 'operations' && desig.includes('manager'))
+      ) {
+        throw new Error(`Cannot assign administrative or finance staff (${emp.name} - ${emp.designation}) as a project specialist.`);
+      }
+    }
+
+    const project = projects[projectIndex];
+    project.assignedUsers = project.assignedUsers || [];
+
+    const newAssignment: ProjectUserAssignment = {
+      id: `asgn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      projectId,
+      userId: assignmentData.userId,
+      userName: assignmentData.userName,
+      userEmail: assignmentData.userEmail || '',
+      employeeCode: assignmentData.employeeCode || '',
+      role: assignmentData.role,
+      department: assignmentData.department || 'Operations',
+      assignedAt: new Date().toISOString(),
+      assignedBy: assignedByName,
+      notes: assignmentData.notes || '',
+      isActive: true
+    };
+
+    project.assignedUsers.push(newAssignment);
+
+    // Sync matching stages if autoSync is true (default true)
+    if (assignmentData.autoSyncStages !== false) {
+      project.stages = project.stages.map(stg => {
+        const matchesRole =
+          stg.assignedRole === assignmentData.role ||
+          (assignmentData.role === 'Site Survey Engineer' && (stg.stageKey === 'site_survey' || stg.assignedRole === 'Site Survey Engineer')) ||
+          (assignmentData.role === 'Civil Team' && (stg.stageKey === 'civil_work' || stg.assignedRole === 'Civil Team')) ||
+          (assignmentData.role === 'Structure Team' && (stg.stageKey === 'structure_fabrication' || stg.assignedRole === 'Structure Team')) ||
+          (assignmentData.role === 'Installation Team' && (stg.stageKey === 'solar_installation' || stg.assignedRole === 'Installation Team')) ||
+          (assignmentData.role === 'Electrical Team' && (stg.stageKey === 'ac_side_electrical' || stg.assignedRole === 'Electrical Team')) ||
+          (assignmentData.role === 'Technician' && (stg.stageKey === 'final_verification' || stg.assignedRole === 'Technician')) ||
+          (assignmentData.role === 'Service Manager' && (stg.stageKey === 'service_amc' || stg.assignedRole === 'Service Manager'));
+
+        if (matchesRole) {
+          return {
+            ...stg,
+            assignedEmployeeId: assignmentData.userId,
+            assignedEmployeeName: assignmentData.userName,
+            assignedToName: assignmentData.userName,
+            assignedToId: assignmentData.userId
+          };
+        }
+        return stg;
+      });
+    }
+
+    project.updatedAt = new Date().toISOString();
+    projects[projectIndex] = project;
+    this.set(STORAGE_KEYS.PROJECTS, projects);
+
+    this.addNotification({
+      title: 'Project Specialist Assigned',
+      message: `${assignmentData.userName} assigned as ${assignmentData.role} to ${project.title} (${project.projectCode}).`,
+      type: 'INFO',
+      linkType: 'PROJECT',
+      linkId: projectId,
+      projectId: projectId,
+      projectName: project.title
+    });
+
+    return newAssignment;
+  }
+
+  updateProjectUserAssignment(
+    projectId: string,
+    assignmentId: string,
+    updates: Partial<ProjectUserAssignment>,
+    autoSyncStages: boolean = true
+  ): boolean {
+    const projects = this.getProjects();
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) return false;
+
+    const project = projects[projectIndex];
+    if (!project.assignedUsers) return false;
+
+    const asgnIndex = project.assignedUsers.findIndex(a => a.id === assignmentId);
+    if (asgnIndex === -1) return false;
+
+    if (updates.role === 'Accountant' || (updates.role as string) === 'Super Admin' || (updates.role as string) === 'Admin' || (updates.role as string) === 'HR Manager' || (updates.role as string) === 'Customer') {
+      throw new Error(`Role "${updates.role}" is not an eligible project specialist role.`);
+    }
+
+    const existing = project.assignedUsers[asgnIndex];
+    const updated: ProjectUserAssignment = {
+      ...existing,
+      ...updates
+    };
+
+    project.assignedUsers[asgnIndex] = updated;
+
+    if (autoSyncStages && updated.isActive) {
+      project.stages = project.stages.map(stg => {
+        if (stg.assignedRole === updated.role) {
+          return {
+            ...stg,
+            assignedEmployeeId: updated.userId,
+            assignedEmployeeName: updated.userName,
+            assignedToName: updated.userName,
+            assignedToId: updated.userId
+          };
+        }
+        return stg;
+      });
+    }
+
+    project.updatedAt = new Date().toISOString();
+    projects[projectIndex] = project;
+    this.set(STORAGE_KEYS.PROJECTS, projects);
+    return true;
+  }
+
+  removeUserFromProject(projectId: string, assignmentId: string): boolean {
+    const projects = this.getProjects();
+    const projectIndex = projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) return false;
+
+    const project = projects[projectIndex];
+    if (!project.assignedUsers) return false;
+
+    const removed = project.assignedUsers.find(a => a.id === assignmentId);
+    project.assignedUsers = project.assignedUsers.filter(a => a.id !== assignmentId);
+    project.updatedAt = new Date().toISOString();
+
+    projects[projectIndex] = project;
+    this.set(STORAGE_KEYS.PROJECTS, projects);
+
+    if (removed) {
+      this.addNotification({
+        title: 'Project Specialist Removed',
+        message: `${removed.userName} removed from ${removed.role} role in ${project.title}.`,
+        type: 'WARNING',
+        linkType: 'PROJECT',
+        linkId: projectId,
+        projectId: projectId,
+        projectName: project.title
+      });
+    }
+
+    return true;
   }
 
   // Update a single stage within a project with automatic advancement logic
@@ -2748,6 +3394,10 @@ class StorageService {
     } else {
       employees.unshift(emp);
     }
+    this.set(STORAGE_KEYS.EMPLOYEES, employees);
+  }
+
+  saveEmployees(employees: Employee[]): void {
     this.set(STORAGE_KEYS.EMPLOYEES, employees);
   }
 
@@ -3127,6 +3777,9 @@ class StorageService {
 
   savePurchaseOrder(order: PurchaseOrder, _autoSyncStock: boolean = false, _performedBy: string = 'Purchase Manager'): void {
     const orders = this.getPurchaseOrders();
+    const validation = validatePurchaseOrder(order, orders, order.id);
+    assertValid(validation);
+
     const idx = orders.findIndex(o => o.id === order.id);
 
     // Compute accurate line-item totals and derived quantities
@@ -3514,6 +4167,99 @@ class StorageService {
     this.set(STORAGE_KEYS.STOCK_MOVEMENTS, movements);
   }
 
+  // ==========================================
+  // Role-Based Access Control (ACL)
+  // ==========================================
+  getAclConfig(): SystemAclConfig {
+    return this.get<SystemAclConfig>(STORAGE_KEYS.ACL_CONFIG, DEFAULT_SYSTEM_ACL_CONFIG);
+  }
+
+  saveAclConfig(config: SystemAclConfig): void {
+    this.set(STORAGE_KEYS.ACL_CONFIG, config);
+  }
+
+  updateRolePermissions(
+    role: UserRole,
+    permissions: Record<string, boolean>,
+    changedBy = 'System Admin',
+    summary?: string
+  ): void {
+    const config = this.getAclConfig();
+    config[role] = {
+      ...(config[role] || {}),
+      ...permissions
+    };
+
+    // If Super Admin, ensure core root permissions cannot be accidentally ungranted
+    if (role === 'Super Admin') {
+      config['Super Admin']['settings.acl_manage'] = true;
+      config['Super Admin']['settings.manage'] = true;
+      config['Super Admin']['settings.view'] = true;
+    }
+
+    this.saveAclConfig(config);
+
+    const defaultSummary = summary || `Updated ${Object.keys(permissions).length} operational permissions for ${role}`;
+    this.addAclAuditLog({
+      changedBy,
+      targetRole: role,
+      action: 'UPDATE_PERMISSIONS',
+      summary: defaultSummary
+    });
+  }
+
+  resetRoleAclToDefault(role: UserRole, changedBy = 'System Admin'): SystemAclConfig {
+    const config = this.getAclConfig();
+    config[role] = { ...(DEFAULT_SYSTEM_ACL_CONFIG[role] || {}) };
+    this.saveAclConfig(config);
+
+    this.addAclAuditLog({
+      changedBy,
+      targetRole: role,
+      action: 'RESET_ROLE',
+      summary: `Restored standard Solar EPC default permissions for ${role}`
+    });
+
+    return config;
+  }
+
+  resetAllAclToDefault(changedBy = 'System Admin'): SystemAclConfig {
+    const deepClone = JSON.parse(JSON.stringify(DEFAULT_SYSTEM_ACL_CONFIG));
+    this.saveAclConfig(deepClone);
+
+    this.addAclAuditLog({
+      changedBy,
+      targetRole: 'Super Admin',
+      action: 'RESET_ROLE',
+      summary: 'Restored baseline Solar EPC permissions for all 15 operational roles'
+    });
+
+    return deepClone;
+  }
+
+  hasAclPermission(role: UserRole, permissionId: string): boolean {
+    if (role === 'Super Admin') return true;
+    const config = this.getAclConfig();
+    const rolePerms = config[role];
+    if (!rolePerms) return false;
+    return Boolean(rolePerms[permissionId]);
+  }
+
+  getAclAuditLogs(): AclAuditLogEntry[] {
+    return this.get<AclAuditLogEntry[]>(STORAGE_KEYS.ACL_AUDIT_LOGS, initialAclAuditLogs);
+  }
+
+  addAclAuditLog(log: Omit<AclAuditLogEntry, 'id' | 'timestamp'>): void {
+    const logs = this.getAclAuditLogs();
+    logs.unshift({
+      ...log,
+      id: `acl-log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toISOString()
+    });
+    // Keep max 50 recent audit records
+    this.set(STORAGE_KEYS.ACL_AUDIT_LOGS, logs.slice(0, 50));
+  }
+
   // Reset demo data to default fresh state
   resetAllData(): void {
     localStorage.removeItem(STORAGE_KEYS.LEADS);
@@ -3537,6 +4283,8 @@ class StorageService {
     localStorage.removeItem(STORAGE_KEYS.BOMS);
     localStorage.removeItem(STORAGE_KEYS.SALES_INVOICES);
     localStorage.removeItem(STORAGE_KEYS.STOCK_MOVEMENTS);
+    localStorage.removeItem(STORAGE_KEYS.ACL_CONFIG);
+    localStorage.removeItem(STORAGE_KEYS.ACL_AUDIT_LOGS);
     window.location.reload();
   }
 }

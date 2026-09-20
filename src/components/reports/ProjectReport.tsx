@@ -3,7 +3,7 @@ import { SolarProject, Customer } from '../../types/solar';
 import { ReportFilterState, ReportCategoryMeta } from '../../types/reports';
 import { exportToCSV } from '../../services/exportImport';
 import { ReportFilterBar } from './ReportFilterBar';
-import { Sun, CheckCircle2, Clock, Zap, DollarSign } from 'lucide-react';
+import { Sun, CheckCircle2, Clock, Zap, DollarSign, Users } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -111,7 +111,7 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
       'Start Date',
       'Target Completion Date',
       'Site Location',
-      'Project Manager',
+      'Assigned Team',
       'Panel Specification',
       'Inverter Specification'
     ];
@@ -127,7 +127,9 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
       p.startDate,
       p.expectedCompletionDate || p.actualCompletionDate || 'N/A',
       p.city || p.location || 'N/A',
-      p.projectManagerName || 'N/A',
+      p.assignedUsers && p.assignedUsers.length > 0
+        ? p.assignedUsers.map(u => `${u.userName} (${u.role})`).join('; ')
+        : p.projectManagerName || 'N/A',
       p.panelModel || 'N/A',
       p.inverterModel || 'N/A'
     ]);
@@ -277,7 +279,7 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
                 <th className="py-3 px-4">Progress</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4">Target Date</th>
-                <th className="py-3 px-4">Project Mgr</th>
+                <th className="py-3 px-4">Assigned Team</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -291,6 +293,8 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
               ) : (
                 filteredProjects.map(p => {
                   const progressVal = p.completionPercentage !== undefined ? p.completionPercentage : p.progressPercentage || 0;
+                  const activeAssignments = p.assignedUsers?.filter(u => u.isActive !== false) || [];
+
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-slate-900">
@@ -339,8 +343,17 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
                       <td className="py-3.5 px-4 whitespace-nowrap text-slate-600">
                         {p.expectedCompletionDate || p.actualCompletionDate || '-'}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                        {p.projectManagerName || '-'}
+                      <td className="py-3.5 px-4 text-slate-600">
+                        {activeAssignments.length > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-md">
+                              <Users className="w-3 h-3 text-amber-600" />
+                              <span>{activeAssignments.length} Specialists</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
                       </td>
                     </tr>
                   );

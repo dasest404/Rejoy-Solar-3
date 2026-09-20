@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/solar';
+import { storageService } from '../services/storage';
 import {
   loginWithEmail,
   registerWithEmail,
@@ -148,9 +149,12 @@ export interface AuthContextType {
   updateRole: (newRole: UserRole) => void;
   switchPersona: (profile: UserProfile) => void;
   canAccessModule: (moduleName: string) => boolean;
+  hasPermission: (permissionId: string) => boolean;
   canApproveStage: () => boolean;
   canEditFinancials: () => boolean;
   canAccessHR: () => boolean;
+  canManageProjectAssignments: () => boolean;
+  isAdmin: boolean;
   isCustomer: boolean;
   isFieldStaff: boolean;
 }
@@ -376,16 +380,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     'Technician'
   ].includes(currentRole);
 
+  const hasPermission = (permissionId: string): boolean => {
+    if (isSuperAdmin) return true;
+    return storageService.hasAclPermission(currentRole, permissionId);
+  };
+
   const canApproveStage = (): boolean => {
-    return isSuperAdmin || isProjectManager;
+    return isSuperAdmin || isProjectManager || hasPermission('projects.stage_approve');
   };
 
   const canEditFinancials = (): boolean => {
-    return isSuperAdmin || currentRole === 'Accountant';
+    return isSuperAdmin || currentRole === 'Accountant' || hasPermission('finance.invoices') || hasPermission('finance.receipts');
   };
 
   const canAccessHR = (): boolean => {
-    return isSuperAdmin || currentRole === 'HR Manager';
+    return isSuperAdmin || currentRole === 'HR Manager' || hasPermission('hrms.manage');
+  };
+
+  const isAdmin = isSuperAdmin;
+
+  const canManageProjectAssignments = (): boolean => {
+    return isSuperAdmin || hasPermission('projects.assign_team');
   };
 
   const canAccessModule = (moduleName: string): boolean => {
@@ -395,44 +410,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return ['customer_portal', 'my_project', 'my_documents', 'my_payments', 'service_request'].includes(moduleName);
     }
 
+    // Dynamic ACL checks:
     switch (moduleName) {
       case 'dashboard':
         return true;
       case 'crm':
       case 'leads':
+        return hasPermission('crm.leads.view') || ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);
       case 'quotations':
-        return ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);
+        return hasPermission('crm.quotations.create') || ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);
       case 'sales_purchase':
       case 'sales':
       case 'purchase':
       case 'inventory':
       case 'bom':
       case 'vendors':
-        return !isCustomer;
+        return hasPermission('inventory.view') || !isCustomer;
       case 'customers':
       case 'projects':
       case 'workflow':
-        return true;
+        return hasPermission('projects.view') || true;
       case 'site_survey':
-        return isSuperAdmin || isProjectManager || currentRole === 'Site Survey Engineer' || currentRole.includes('Sales');
+        return hasPermission('survey.view') || isSuperAdmin || isProjectManager || currentRole === 'Site Survey Engineer' || currentRole.includes('Sales');
       case 'finance':
       case 'invoices':
       case 'accounting':
       case 'tally':
-        return isSuperAdmin || currentRole === 'Accountant';
+        return hasPermission('finance.view') || isSuperAdmin || currentRole === 'Accountant';
       case 'hrms':
       case 'employees':
       case 'attendance':
       case 'payroll':
-        return isSuperAdmin || currentRole === 'HR Manager';
+        return hasPermission('hrms.view') || isSuperAdmin || currentRole === 'HR Manager';
       case 'service':
       case 'amc':
-        return isSuperAdmin || isProjectManager || currentRole === 'Service Manager' || currentRole === 'Technician';
+        return hasPermission('service.tickets_view') || isSuperAdmin || isProjectManager || currentRole === 'Service Manager' || currentRole === 'Technician';
       case 'reports':
-        return isSuperAdmin || isProjectManager || currentRole === 'Sales Manager' || currentRole === 'Accountant';
+        return hasPermission('reports.view') || isSuperAdmin || isProjectManager || currentRole === 'Sales Manager' || currentRole === 'Accountant';
       case 'settings':
       case 'roles':
-        return isSuperAdmin;
+        return hasPermission('settings.view') || isSuperAdmin;
       default:
         return true;
     }
@@ -454,9 +471,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateRole,
         switchPersona,
         canAccessModule,
+        hasPermission,
         canApproveStage,
         canEditFinancials,
         canAccessHR,
+        canManageProjectAssignments,
+        isAdmin,
         isCustomer,
         isFieldStaff
       }}

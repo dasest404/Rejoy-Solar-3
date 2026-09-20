@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
 import { PurchaseOrder, PurchaseLineItem, Vendor, ProductItem, SolarProject } from '../../types/solar';
+import { validatePOLineItem, validatePOLineItems, validatePurchaseOrder } from '../../services/validation';
 import {
   ShoppingCart,
   Plus,
@@ -53,6 +54,8 @@ export const PurchaseOrderEntry: React.FC = () => {
   );
   const [formInvoiceRef, setFormInvoiceRef] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [lineItemError, setLineItemError] = useState('');
+  const [formError, setFormError] = useState('');
 
   // Line items state for creating new PO
   const [lineItems, setLineItems] = useState<PurchaseLineItem[]>([]);
@@ -92,7 +95,19 @@ export const PurchaseOrderEntry: React.FC = () => {
   // When a product is chosen in line items builder
   const handleProductSelect = (prodId: string) => {
     setSelectedProductId(prodId);
+    setLineItemError('');
     if (!prodId) return;
+
+    // Check if product is already in line items
+    const existing = lineItems.find(it => it.productId === prodId);
+    if (existing) {
+      const prod = products.find(p => p.id === prodId);
+      const msg = `Product "${prod?.name || prodId}" is already added to this Purchase Order (Ordered: ${existing.orderedQuantity} ${existing.unit}). Please adjust the existing item quantity instead of adding it again.`;
+      setLineItemError(msg);
+      showToast(msg, 'warning');
+      return;
+    }
+
     const prod = products.find(p => p.id === prodId);
     if (prod) {
       setItemUnitPrice(prod.unitPrice);
@@ -103,17 +118,34 @@ export const PurchaseOrderEntry: React.FC = () => {
   };
 
   const handleAddLineItem = () => {
+    setLineItemError('');
     if (!selectedProductId) {
+      setLineItemError('Please select a product from catalog.');
       showToast('Please select a product from catalog', 'warning');
       return;
     }
     if (itemQty <= 0 || itemUnitPrice <= 0) {
+      setLineItemError('Quantity and Unit Price must be greater than 0.');
       showToast('Quantity and Unit Price must be greater than 0', 'warning');
       return;
     }
 
     const prod = products.find(p => p.id === selectedProductId);
     if (!prod) return;
+
+    // Strict duplicate check before adding
+    const candidateItem: Partial<PurchaseLineItem> = {
+      productId: prod.id,
+      productName: prod.name,
+      sku: prod.sku
+    };
+    const duplicateValidation = validatePOLineItem(candidateItem, lineItems);
+    if (!duplicateValidation.valid) {
+      const msg = duplicateValidation.message || `Product "${prod.name}" is already included in this Purchase Order.`;
+      setLineItemError(msg);
+      showToast(msg, 'warning');
+      return;
+    }
 
     const baseAmount = itemQty * itemUnitPrice;
     const taxAmt = Math.round((baseAmount * itemTaxRate) / 100);
@@ -143,10 +175,13 @@ export const PurchaseOrderEntry: React.FC = () => {
     setSelectedProductId('');
     setItemQty(10);
     setItemUnitPrice(0);
+    setLineItemError('');
   };
 
   const handleRemoveLineItem = (index: number) => {
     setLineItems(prev => prev.filter((_, i) => i !== index));
+    setLineItemError('');
+    setFormError('');
   };
 
   const formSubtotal = useMemo(() => {
@@ -161,14 +196,26 @@ export const PurchaseOrderEntry: React.FC = () => {
 
   const handleSavePO = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
     if (!formVendorId) {
+      setFormError('Please select a vendor.');
       showToast('Please select a vendor', 'warning');
       return;
     }
 
     if (lineItems.length === 0) {
+      setFormError('Please add at least one line item to the purchase order.');
       showToast('Please add at least one line item to the purchase order', 'warning');
+      return;
+    }
+
+    // Strict duplicate check on line items before creating PO
+    const duplicateValidation = validatePOLineItems(lineItems);
+    if (!duplicateValidation.valid) {
+      const msg = duplicateValidation.message || 'Duplicate products found in Purchase Order.';
+      setFormError(msg);
+      showToast(msg, 'error');
       return;
     }
 
@@ -199,17 +246,25 @@ export const PurchaseOrderEntry: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    storageService.savePurchaseOrder(newPO, false);
-    triggerRefresh();
-    showToast(`Purchase Order ${newPO.purchaseNumber} submitted to ${newPO.vendorName}`, 'success');
-    setIsCreateModalOpen(false);
+    try {
+      storageService.savePurchaseOrder(newPO, false);
+      triggerRefresh();
+      showToast(`Purchase Order ${newPO.purchaseNumber} submitted to ${newPO.vendorName}`, 'success');
+      setIsCreateModalOpen(false);
 
-    // Reset form
-    setFormVendorId('');
-    setFormProjectId('');
-    setLineItems([]);
-    setFormNotes('');
-    setFormInvoiceRef('');
+      // Reset form
+      setFormVendorId('');
+      setFormProjectId('');
+      setLineItems([]);
+      setFormNotes('');
+      setFormInvoiceRef('');
+      setLineItemError('');
+      setFormError('');
+    } catch (err: any) {
+      const msg = err.message || 'Failed to save purchase order.';
+      setFormError(msg);
+      showToast(msg, 'error');
+    }
   };
 
   const handleDeletePO = (id: string, poNum: string) => {
@@ -653,11 +708,23 @@ export const PurchaseOrderEntry: React.FC = () => {
                       className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
                     >
                       <option value="">-- Select Product to Order --</option>
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.sku} - {p.name} (Stock: {p.currentStock})
-                        </option>
-                      ))}
+                      {products.map(p => {
+                        const isAlreadyAdded = lineItems.some(
+                          it => it.productId === p.id || (p.sku && it.sku === p.sku)
+                        );
+                        return (
+                          <option
+                            key={p.id}
+                            value={p.id}
+                            disabled={isAlreadyAdded}
+                            className={isAlreadyAdded ? 'text-slate-400 bg-slate-50' : ''}
+                          >
+                            {isAlreadyAdded
+                              ? `[Already in PO] ${p.sku} - ${p.name}`
+                              : `${p.sku} - ${p.name} (Stock: ${p.currentStock})`}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -698,6 +765,14 @@ export const PurchaseOrderEntry: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Line Item Validation Error Banner */}
+                {lineItemError && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{lineItemError}</span>
+                  </div>
+                )}
 
                 {/* Items Table */}
                 <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
@@ -790,18 +865,31 @@ export const PurchaseOrderEntry: React.FC = () => {
                 />
               </div>
 
+              {/* Form Validation Error */}
+              {formError && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               {/* Submit Buttons */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    setLineItemError('');
+                    setFormError('');
+                  }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                  disabled={lineItems.length === 0 || !validatePOLineItems(lineItems).valid}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
                 >
                   Confirm & Place PO
                 </button>

@@ -417,7 +417,7 @@ export const StageCard: React.FC<StageCardProps> = ({
                 </p>
               ) : (
                 <p className="text-xs text-amber-800">
-                  Submission awaiting Project Manager or Super Admin sign-off.
+                  Submission awaiting Admin formal sign-off.
                 </p>
               )}
             </div>

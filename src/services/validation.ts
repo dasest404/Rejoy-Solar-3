@@ -4,7 +4,9 @@ import {
   Vendor,
   Employee,
   BillOfMaterials,
-  BOMItem
+  BOMItem,
+  PurchaseOrder,
+  PurchaseLineItem
 } from '../types/solar';
 
 export interface ValidationResult {
@@ -506,6 +508,156 @@ export function validateBOM(
         }
         seenNames.add(name);
       }
+    }
+  }
+
+  return { valid: true };
+}
+
+// ==========================================
+// 6. Purchase Order & Line Item Duplicate Validation
+// ==========================================
+
+/**
+ * Validates whether an array of Purchase Order line items contains duplicate products.
+ * The same product must not be added more than once in a single Purchase Order.
+ */
+export function validatePOLineItems(
+  items: (PurchaseLineItem | Partial<PurchaseLineItem>)[]
+): ValidationResult {
+  const seenProductIds = new Map<string, string>(); // id -> display name
+  const seenSkus = new Map<string, string>(); // sku -> display name
+  const seenNames = new Map<string, string>(); // normalized name -> display name
+
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const displayName = it.productName || it.sku || `Line Item #${i + 1}`;
+
+    // 1. Check matching Product ID
+    if (it.productId && it.productId.trim()) {
+      const pid = it.productId.trim();
+      if (seenProductIds.has(pid)) {
+        return {
+          valid: false,
+          field: 'productId',
+          message: `Duplicate product detected: "${displayName}" is already included in this Purchase Order. Please update the quantity of the existing line item instead of adding it again.`
+        };
+      }
+      seenProductIds.set(pid, displayName);
+    }
+
+    // 2. Check matching SKU (normalized)
+    const sku = normalizeCode(it.sku);
+    if (sku.length > 0 && !sku.startsWith('CUSTOM-')) {
+      if (seenSkus.has(sku)) {
+        return {
+          valid: false,
+          field: 'sku',
+          message: `Duplicate product detected: Product with SKU "${it.sku}" (${displayName}) is already added in this Purchase Order. Combine quantities into a single line item.`
+        };
+      }
+      seenSkus.set(sku, displayName);
+    }
+
+    // 3. Check matching Product Name (case-insensitive)
+    const normName = normalizeCaseInsensitive(it.productName);
+    if (normName.length > 0) {
+      if (seenNames.has(normName)) {
+        return {
+          valid: false,
+          field: 'productName',
+          message: `Duplicate product detected: "${it.productName}" is already present in this Purchase Order. Update the quantity of the existing line item.`
+        };
+      }
+      seenNames.set(normName, displayName);
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates whether a candidate purchase line item being added or modified is already in the line items list.
+ */
+export function validatePOLineItem(
+  candidate: Partial<PurchaseLineItem>,
+  existingItems: (PurchaseLineItem | Partial<PurchaseLineItem>)[],
+  ignoreIndex?: number
+): ValidationResult {
+  const pool = existingItems.filter((_, idx) => ignoreIndex === undefined || idx !== ignoreIndex);
+  const displayName = candidate.productName || candidate.sku || 'Selected product';
+
+  // 1. Check Product ID match
+  if (candidate.productId && candidate.productId.trim()) {
+    const candPid = candidate.productId.trim();
+    const match = pool.find(it => it.productId && it.productId.trim() === candPid);
+    if (match) {
+      return {
+        valid: false,
+        field: 'productId',
+        message: `Product "${displayName}" is already included in this Purchase Order. Please update the quantity of the existing line item instead of adding a duplicate.`
+      };
+    }
+  }
+
+  // 2. Check SKU match
+  const candSku = normalizeCode(candidate.sku);
+  if (candSku.length > 0 && !candSku.startsWith('CUSTOM-')) {
+    const match = pool.find(it => normalizeCode(it.sku) === candSku);
+    if (match) {
+      return {
+        valid: false,
+        field: 'sku',
+        message: `Product with SKU "${candidate.sku}" (${displayName}) is already included in this Purchase Order. Update the existing item's quantity.`
+      };
+    }
+  }
+
+  // 3. Check Product Name match (case-insensitive)
+  const candName = normalizeCaseInsensitive(candidate.productName);
+  if (candName.length > 0) {
+    const match = pool.find(it => normalizeCaseInsensitive(it.productName) === candName);
+    if (match) {
+      return {
+        valid: false,
+        field: 'productName',
+        message: `Product "${candidate.productName}" is already included in this Purchase Order. Increase its quantity instead of adding a duplicate line.`
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates an entire Purchase Order before persistence:
+ * - Checks that line items contain strictly no duplicate products.
+ * - Checks PO Number uniqueness if provided and comparing against existing orders.
+ */
+export function validatePurchaseOrder(
+  candidate: Partial<PurchaseOrder>,
+  existingOrders?: PurchaseOrder[],
+  ignoreId?: string
+): ValidationResult {
+  // 1. Strict Duplicate Product Validation on Line Items
+  if (candidate.items && candidate.items.length > 0) {
+    const itemsValidation = validatePOLineItems(candidate.items);
+    if (!itemsValidation.valid) {
+      return itemsValidation;
+    }
+  }
+
+  // 2. PO Number uniqueness (if existingOrders provided)
+  if (existingOrders && candidate.purchaseNumber) {
+    const candPoNum = normalizeCode(candidate.purchaseNumber);
+    const pool = existingOrders.filter(o => !ignoreId || o.id !== ignoreId);
+    const match = pool.find(o => normalizeCode(o.purchaseNumber) === candPoNum);
+    if (match) {
+      return {
+        valid: false,
+        field: 'purchaseNumber',
+        message: `Purchase Order number "${candidate.purchaseNumber}" already exists.`
+      };
     }
   }
 

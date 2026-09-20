@@ -4,6 +4,8 @@ import { storageService } from '../services/storage';
 import { ExportModule } from '../services/exportImport';
 import { ReportCategory } from '../types/reports';
 
+export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl';
+
 export type AppView =
   | 'dashboard'
   | 'crm_leads'
@@ -67,13 +69,16 @@ interface AppContextType {
   activeReportCategory: ReportCategory;
   setActiveReportCategory: (category: ReportCategory) => void;
   openReport: (category: ReportCategory) => void;
+  activeSettingsTab: SettingsTab;
+  setActiveSettingsTab: (tab: SettingsTab) => void;
+  openSettingsTab: (tab: SettingsTab) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
 }
 
-const getInitialViewFromPath = (): { view: AppView; filterKey: string | null } => {
+const getInitialViewFromPath = (): { view: AppView; filterKey: string | null; settingsTab?: SettingsTab } => {
   if (typeof window === 'undefined') {
-    return { view: 'dashboard', filterKey: null };
+    return { view: 'dashboard', filterKey: null, settingsTab: 'general' };
   }
   const path = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
   switch (path) {
@@ -95,8 +100,16 @@ const getInitialViewFromPath = (): { view: AppView; filterKey: string | null } =
       return { view: 'service', filterKey: null };
     case '/reports':
       return { view: 'reports', filterKey: null };
+    case '/settings/acl':
+    case '/acl':
+    case '/roles':
+      return { view: 'settings', filterKey: null, settingsTab: 'acl' };
+    case '/settings/tally':
+      return { view: 'settings', filterKey: null, settingsTab: 'tally' };
+    case '/settings/whatsapp':
+      return { view: 'settings', filterKey: null, settingsTab: 'whatsapp' };
     case '/settings':
-      return { view: 'settings', filterKey: null };
+      return { view: 'settings', filterKey: null, settingsTab: 'general' };
     case '/finance':
       return { view: 'finance', filterKey: null };
     case '/hrms':
@@ -156,10 +169,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeView, setActiveViewState] = useState<AppView>(initialRoute.view);
   const [stageFilterKey, setStageFilterKeyInternal] = useState<string | null>(initialRoute.filterKey);
   const [activeReportCategory, setActiveReportCategory] = useState<ReportCategory>('sales');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(initialRoute.settingsTab || 'general');
 
   const openReport = (category: ReportCategory) => {
     setActiveReportCategory(category);
     setActiveView('reports');
+  };
+
+  const openSettingsTab = (tab: SettingsTab) => {
+    setActiveSettingsTab(tab);
+    setActiveView('settings');
   };
 
   const setActiveView = (view: AppView) => {
@@ -328,6 +347,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeReportCategory,
         setActiveReportCategory,
         openReport,
+        activeSettingsTab,
+        setActiveSettingsTab,
+        openSettingsTab,
         refreshTrigger,
         triggerRefresh
       }}

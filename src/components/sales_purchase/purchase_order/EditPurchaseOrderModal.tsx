@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { PurchaseOrder, PurchaseLineItem, Vendor, ProductItem, SolarProject } from '../../../types/solar';
 import { storageService } from '../../../services/storage';
+import { validatePOLineItem, validatePOLineItems } from '../../../services/validation';
 import {
   Edit3,
   X,
@@ -55,10 +56,24 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   const [newItemQty, setNewItemQty] = useState<number>(10);
   const [newItemUnitPrice, setNewItemUnitPrice] = useState<number>(0);
   const [newItemTaxPercent, setNewItemTaxPercent] = useState<number>(12);
+  const [lineItemError, setLineItemError] = useState('');
+  const [formError, setFormError] = useState('');
 
   const handleProductSelect = (prodId: string) => {
     setSelectedProductId(prodId);
+    setLineItemError('');
     if (!prodId) return;
+
+    // Check if product is already in line items
+    const existing = items.find(it => it.productId === prodId);
+    if (existing) {
+      const prod = products.find(p => p.id === prodId);
+      const msg = `Product "${prod?.name || prodId}" is already included in this Purchase Order (Ordered: ${existing.orderedQuantity} ${existing.unit}). Please adjust its quantity above instead of adding it again.`;
+      setLineItemError(msg);
+      showToast(msg, 'warning');
+      return;
+    }
+
     const prod = products.find(p => p.id === prodId);
     if (prod) {
       setNewItemUnitPrice(prod.unitPrice);
@@ -66,17 +81,34 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   };
 
   const handleAddNewItem = () => {
+    setLineItemError('');
     if (!selectedProductId) {
+      setLineItemError('Please select a product from catalog.');
       showToast('Please select a product from catalog', 'warning');
       return;
     }
     if (newItemQty <= 0 || newItemUnitPrice <= 0) {
+      setLineItemError('Quantity and Unit Price must be greater than 0.');
       showToast('Quantity and Unit Price must be greater than 0', 'warning');
       return;
     }
 
     const prod = products.find(p => p.id === selectedProductId);
     if (!prod) return;
+
+    // Strict duplicate check before adding
+    const candidateItem: Partial<PurchaseLineItem> = {
+      productId: prod.id,
+      productName: prod.name,
+      sku: prod.sku
+    };
+    const duplicateValidation = validatePOLineItem(candidateItem, items);
+    if (!duplicateValidation.valid) {
+      const msg = duplicateValidation.message || `Product "${prod.name}" is already included in this Purchase Order.`;
+      setLineItemError(msg);
+      showToast(msg, 'warning');
+      return;
+    }
 
     const baseAmount = newItemQty * newItemUnitPrice;
     const taxAmt = Math.round((baseAmount * newItemTaxPercent) / 100);
@@ -106,6 +138,7 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     setSelectedProductId('');
     setNewItemQty(10);
     setNewItemUnitPrice(0);
+    setLineItemError('');
   };
 
   const handleUpdateItem = (index: number, field: keyof PurchaseLineItem, value: any) => {
@@ -149,6 +182,8 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
       return;
     }
     setItems(prev => prev.filter((_, i) => i !== index));
+    setLineItemError('');
+    setFormError('');
   };
 
   // Totals calculations
@@ -158,22 +193,45 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     const grandTotal = subtotal + taxAmount;
     const hasOrderedLessThanReceived = items.some(it => it.orderedQuantity < it.receivedQuantity);
 
-    return { subtotal, taxAmount, grandTotal, hasOrderedLessThanReceived };
+    const duplicateValidation = validatePOLineItems(items);
+    const hasDuplicateProducts = !duplicateValidation.valid;
+    const duplicateError = duplicateValidation.message || '';
+
+    return {
+      subtotal,
+      taxAmount,
+      grandTotal,
+      hasOrderedLessThanReceived,
+      hasDuplicateProducts,
+      duplicateError
+    };
   }, [items]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
     if (items.length === 0) {
+      setFormError('Purchase order must have at least one line item.');
       showToast('Purchase order must have at least one line item', 'warning');
       return;
     }
 
     if (totals.hasOrderedLessThanReceived) {
+      setFormError('One or more line items have ordered quantity less than already received quantity. Please adjust.');
       showToast(
         'One or more line items have ordered quantity less than already received quantity. Please adjust.',
         'error'
       );
+      return;
+    }
+
+    // Strict duplicate check on line items before saving
+    const duplicateValidation = validatePOLineItems(items);
+    if (!duplicateValidation.valid) {
+      const msg = duplicateValidation.message || 'Duplicate products detected in Purchase Order.';
+      setFormError(msg);
+      showToast(msg, 'error');
       return;
     }
 
@@ -200,10 +258,16 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    storageService.savePurchaseOrder(updatedOrder, false);
-    showToast(`Purchase Order ${order.purchaseNumber} updated successfully`, 'success');
-    onOrderSaved(updatedOrder);
-    onClose();
+    try {
+      storageService.savePurchaseOrder(updatedOrder, false);
+      showToast(`Purchase Order ${order.purchaseNumber} updated successfully`, 'success');
+      onOrderSaved(updatedOrder);
+      onClose();
+    } catch (err: any) {
+      const msg = err.message || 'Failed to update purchase order.';
+      setFormError(msg);
+      showToast(msg, 'error');
+    }
   };
 
   return (
@@ -356,6 +420,19 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
               </span>
             </div>
 
+            {/* Existing Duplicate Products Warning Banner */}
+            {totals.hasDuplicateProducts && (
+              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <div className="flex-1">
+                  <span className="font-bold">Duplicate Product Detected:</span> {totals.duplicateError}
+                  <span className="block mt-0.5 text-amber-800">
+                    The same product must not appear more than once in a Purchase Order. Please consolidate quantities and remove the duplicate item before saving.
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
@@ -493,11 +570,21 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                     className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg"
                   >
                     <option value="">-- Choose Product to Append --</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.sku} - {p.name}
-                      </option>
-                    ))}
+                    {products.map(p => {
+                      const isAlreadyInPO = items.some(
+                        it => it.productId === p.id || (p.sku && it.sku === p.sku)
+                      );
+                      return (
+                        <option
+                          key={p.id}
+                          value={p.id}
+                          disabled={isAlreadyInPO}
+                          className={isAlreadyInPO ? 'text-slate-400 bg-slate-50' : ''}
+                        >
+                          {isAlreadyInPO ? `[Already in PO] ${p.sku} - ${p.name}` : `${p.sku} - ${p.name}`}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -534,6 +621,14 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Line item error banner */}
+              {lineItemError && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{lineItemError}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -551,6 +646,14 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
             />
           </div>
 
+          {/* Form error banner */}
+          {formError && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium animate-in fade-in">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
           {/* Footer Actions */}
           <div className="flex items-center justify-between pt-4 border-t border-slate-200">
             <button
@@ -563,8 +666,8 @@ export const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
 
             <button
               type="submit"
-              disabled={totals.hasOrderedLessThanReceived}
-              className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+              disabled={totals.hasOrderedLessThanReceived || totals.hasDuplicateProducts}
+              className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
             >
               <Save className="w-4 h-4" />
               Save PO Summary Changes
