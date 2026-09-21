@@ -93,7 +93,7 @@ const MainLayout: React.FC = () => {
 
         {/* Primary Operational Stage Canvas */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 lg:ml-64">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <Suspense fallback={<ViewLoader />}>
               {renderActiveView()}
             </Suspense>
