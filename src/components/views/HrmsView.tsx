@@ -35,7 +35,8 @@ import {
   MinusCircle,
   Sparkles,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Key
 } from 'lucide-react';
 
 export const HrmsView: React.FC = () => {
@@ -250,8 +251,13 @@ export const HrmsView: React.FC = () => {
     const isEdit = Boolean(employeeToEdit);
     try {
       storageService.saveEmployee(emp);
+      const loginMsg = emp.loginEnabled
+        ? ` (ERP Login: ${emp.systemRole || 'Active'})`
+        : ' (ERP Login: Disabled)';
       showToast(
-        isEdit ? `Employee ${emp.name} (${emp.employeeCode}) updated successfully` : `Employee ${emp.name} (${emp.employeeCode}) registered successfully`,
+        isEdit
+          ? `Employee ${emp.name} (${emp.employeeCode}) updated${loginMsg}`
+          : `Employee ${emp.name} (${emp.employeeCode}) registered${loginMsg}`,
         'success'
       );
       triggerRefresh();
@@ -734,6 +740,23 @@ export const HrmsView: React.FC = () => {
                           <span className="truncate">{e.currentSiteLocation}</span>
                         </p>
                       )}
+                      <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                        {e.loginEnabled ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200" title={`ERP Access: ${e.systemRole || 'Active'}`}>
+                            <Key className="w-2.5 h-2.5" />
+                            <span>ERP: {e.systemRole || 'User'}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200" title="No ERP Login account assigned">
+                            <span>No ERP Access</span>
+                          </span>
+                        )}
+                        {e.accountStatus === 'DISABLED' && e.loginEnabled && (
+                          <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                            Suspended
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

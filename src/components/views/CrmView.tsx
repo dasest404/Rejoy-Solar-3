@@ -5,6 +5,10 @@ import { storageService } from '../../services/storage';
 import { Lead, Customer, Quotation } from '../../types/solar';
 import { StatusBadge } from '../common/StatusBadge';
 import { validateCustomer, DuplicateRecordError } from '../../services/validation';
+import { QuotationModal } from '../crm/QuotationModal';
+import { QuotationPdfPreviewModal } from '../crm/QuotationPdfPreviewModal';
+import { generateQuotationPdf } from '../../utils/quotationPdfGenerator';
+import { formatINR } from '../../utils/indianNumberWords';
 import {
   Users,
   Building2,
@@ -23,7 +27,11 @@ import {
   FileSpreadsheet,
   X,
   Calculator,
-  Kanban
+  Kanban,
+  Eye,
+  Pencil,
+  Copy,
+  Trash2
 } from 'lucide-react';
 
 export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATIONS' }> = ({
@@ -66,18 +74,11 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
     estimatedValue: 1250000
   });
 
-  // Quotation Builder Modal state
+  // Quotation Builder & Preview Modal states
   const [isNewQuotationOpen, setIsNewQuotationOpen] = useState(false);
-  const [quoteForm, setQuoteForm] = useState({
-    customerName: 'Apex Polychem Ltd',
-    capacityKw: 100,
-    ratePerWp: 42,
-    panelBrand: 'Waaree 540Wp Bifacial Mono PERC',
-    inverterBrand: 'Sungrow 110kW String Inverter',
-    structureType: 'HDG 15° Fixed Tilt',
-    gstRatePercent: 13.8,
-    discountAmount: 50000
-  });
+  const [editQuotation, setEditQuotation] = useState<Quotation | null>(null);
+  const [previewQuotation, setPreviewQuotation] = useState<Quotation | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const leads = useMemo(() => storageService.getLeads(), [refreshTrigger]);
   const customers = useMemo(() => storageService.getCustomers(), [refreshTrigger]);
@@ -201,38 +202,50 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
     }
   };
 
-  const calculateQuoteFinancials = () => {
-    const baseAmount = quoteForm.capacityKw * 1000 * quoteForm.ratePerWp;
-    const discounted = Math.max(0, baseAmount - quoteForm.discountAmount);
-    const gstAmount = (discounted * quoteForm.gstRatePercent) / 100;
-    const totalAmount = discounted + gstAmount;
-    return { baseAmount, discounted, gstAmount, totalAmount };
+  const handleSaveQuotation = (quotation: Quotation, previewNow?: boolean) => {
+    storageService.saveQuotation(quotation);
+    setIsNewQuotationOpen(false);
+    setEditQuotation(null);
+    showToast(`Quotation ${quotation.quotationNumber} saved successfully`, 'success');
+    triggerRefresh();
+
+    if (previewNow) {
+      setPreviewQuotation(quotation);
+      setIsPreviewOpen(true);
+    }
   };
 
-  const handleSaveQuotation = () => {
-    const { baseAmount, gstAmount, totalAmount } = calculateQuoteFinancials();
-    const newQuote: Quotation = {
+  const handleDuplicateQuotation = (q: Quotation) => {
+    const nextNum = storageService.getNextQuotationNumber();
+    const duplicated: Quotation = {
+      ...q,
       id: `quote-${Date.now()}`,
-      quotationNumber: `QTN-2026-${Math.floor(100 + Math.random() * 900)}`,
-      customerId: 'cust-1',
-      customerName: quoteForm.customerName,
-      capacityKw: quoteForm.capacityKw,
-      ratePerWp: quoteForm.ratePerWp,
-      baseAmount,
-      taxAmount: gstAmount,
-      totalAmount,
-      status: 'SENT',
-      createdAt: new Date().toISOString().slice(0, 10),
-      validTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      panelBrand: quoteForm.panelBrand,
-      inverterBrand: quoteForm.inverterBrand,
-      structureType: quoteForm.structureType
+      quotationNumber: nextNum,
+      quotationDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString().split('T')[0],
+      status: 'DRAFT',
+      validTill: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
     };
-
-    storageService.saveQuotation(newQuote);
-    setIsNewQuotationOpen(false);
-    showToast(`Quotation ${newQuote.quotationNumber} generated and saved`, 'success');
+    storageService.saveQuotation(duplicated);
+    showToast(`Cloned proposal as ${nextNum}`, 'success');
     triggerRefresh();
+  };
+
+  const handleDeleteQuotation = (id: string, qNum: string) => {
+    if (window.confirm(`Are you sure you want to delete quotation ${qNum}?`)) {
+      storageService.deleteQuotation(id);
+      showToast(`Quotation ${qNum} deleted`, 'info');
+      triggerRefresh();
+    }
+  };
+
+  const handleDirectDownloadPdf = (q: Quotation) => {
+    try {
+      generateQuotationPdf(q);
+      showToast(`Downloaded PDF for ${q.quotationNumber}`, 'success');
+    } catch (err: any) {
+      showToast(`Failed to generate PDF: ${err.message || err}`, 'error');
+    }
   };
 
   const kanbanColumns = [
@@ -298,7 +311,10 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
 
           {activeTab === 'QUOTATIONS' && (
             <button
-              onClick={() => setIsNewQuotationOpen(true)}
+              onClick={() => {
+                setEditQuotation(null);
+                setIsNewQuotationOpen(true);
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs"
             >
               <Calculator className="w-4 h-4" />
@@ -581,58 +597,190 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
       {/* TAB 3: QUOTATIONS & PROPOSALS */}
       {activeTab === 'QUOTATIONS' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">Quotation #</th>
-                  <th className="py-3 px-4">Customer Name</th>
-                  <th className="py-3 px-4">Capacity</th>
-                  <th className="py-3 px-4">Rate (₹/Wp)</th>
-                  <th className="py-3 px-4">Total Amount (₹)</th>
-                  <th className="py-3 px-4">Valid Till</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredQuotations.map((q) => (
-                  <tr key={q.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{q.quotationNumber}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{q.customerName}</td>
-                    <td className="py-3.5 px-4 font-bold text-amber-800">{q.capacityKw} kW</td>
-                    <td className="py-3.5 px-4 text-slate-600">₹{q.ratePerWp}</td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">₹{q.totalAmount.toLocaleString('en-IN')}</td>
-                    <td className="py-3.5 px-4 text-slate-500">{q.validTill}</td>
-                    <td className="py-3.5 px-4">
-                      <StatusBadge status={q.status} size="sm" />
-                    </td>
-                    <td className="py-3.5 px-4 text-right space-x-2">
-                      <button
-                        onClick={() =>
-                          openWhatsAppModal('919879544321', q.customerName, 'QUOTATION_SHARE', {
-                            quotationNumber: q.quotationNumber,
-                            capacityKw: q.capacityKw,
-                            amount: q.totalAmount
-                          })
-                        }
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-md"
-                        title="Share on WhatsApp"
-                      >
-                        <MessageSquare className="w-4 h-4 inline" />
-                      </button>
-                      <button
-                        onClick={() => showToast(`Proposal PDF generated for ${q.quotationNumber}`, 'info')}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-[11px]"
-                      >
-                        View PDF
-                      </button>
-                    </td>
+          {filteredQuotations.length === 0 ? (
+            <div className="text-center py-16 px-4">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-sm font-bold text-slate-800">No Quotations Found</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                No solar proposals match your search. Generate a professional 6-page turnkey quotation proposal for your clients.
+              </p>
+              <button
+                onClick={() => {
+                  setEditQuotation(null);
+                  setIsNewQuotationOpen(true);
+                }}
+                className="mt-4 px-4 py-2 text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create First Quotation</span>
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200 text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Quotation #</th>
+                    <th className="py-3 px-4">Client / Enterprise</th>
+                    <th className="py-3 px-4">Plant Technical Specs</th>
+                    <th className="py-3 px-3 text-center">BOM Items</th>
+                    <th className="py-3 px-4 text-right">Project Value & Subsidy</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredQuotations.map((q) => {
+                    const totalCost = q.totalProjectCost || q.totalAmount || 0;
+                    const subsidy = q.totalSubsidy || (q.centralSubsidy || 0) + (q.stateSubsidy || 0);
+                    const netInvestment = q.finalProjectInvestment || (totalCost - subsidy);
+                    const itemsCount = q.items?.length || 0;
+
+                    return (
+                      <tr key={q.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-slate-900 block">{q.quotationNumber}</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {q.quotationDate || q.createdAt || 'N/A'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-slate-800 block">{q.customerName}</span>
+                          {q.companyName && (
+                            <span className="text-[11px] text-slate-500 block truncate max-w-[180px]">
+                              {q.companyName}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[180px]">
+                            {q.city || 'Raipur, CG'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              {q.capacityKw} kW
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-600">
+                              {q.systemType || 'On-Grid'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 block mt-1 truncate max-w-[200px]">
+                            {q.panelBrand || 'Tier-1 Mono PERC'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                            {itemsCount} {itemsCount === 1 ? 'part' : 'items'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <span className="font-black text-slate-900 block text-xs">
+                            {formatINR(totalCost)}
+                          </span>
+                          {subsidy > 0 ? (
+                            <div className="text-[10px] mt-0.5">
+                              <span className="text-emerald-700 font-bold block">
+                                Net: {formatINR(netInvestment)}
+                              </span>
+                              <span className="text-slate-400">
+                                (Subsidy: {formatINR(subsidy)})
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">Turnkey EPC with GST</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-center">
+                          <StatusBadge status={q.status} size="sm" />
+                          {q.validTill && (
+                            <span className="text-[9px] text-slate-400 block mt-1">
+                              Till: {q.validTill}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* View PDF */}
+                            <button
+                              onClick={() => {
+                                setPreviewQuotation(q);
+                                setIsPreviewOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-lg transition-colors flex items-center gap-1 border border-amber-200 text-[11px]"
+                              title="Interactive 6-Page PDF Preview"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-amber-600" />
+                              <span>View PDF</span>
+                            </button>
+
+                            {/* Direct Download PDF */}
+                            <button
+                              onClick={() => handleDirectDownloadPdf(q)}
+                              className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Download PDF directly"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+
+                            {/* Edit */}
+                            <button
+                              onClick={() => {
+                                setEditQuotation(q);
+                                setIsNewQuotationOpen(true);
+                              }}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Quotation & BOM"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+
+                            {/* Clone / Duplicate */}
+                            <button
+                              onClick={() => handleDuplicateQuotation(q)}
+                              className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Clone as New Proposal"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+
+                            {/* WhatsApp */}
+                            <button
+                              onClick={() =>
+                                openWhatsAppModal('919879544321', q.customerName, 'QUOTATION_SHARE', {
+                                  quotationNumber: q.quotationNumber,
+                                  capacityKw: q.capacityKw,
+                                  amount: totalCost
+                                })
+                              }
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Share on WhatsApp"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleDeleteQuotation(q.id, q.quotationNumber)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Quotation"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -750,100 +898,27 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
         </div>
       )}
 
-      {/* NEW QUOTATION GENERATOR MODAL */}
-      {isNewQuotationOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <Calculator className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-base text-slate-900">Commercial Solar EPC Proposal Builder</h3>
-              </div>
-              <button onClick={() => setIsNewQuotationOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* DYNAMIC SOLAR QUOTATION GENERATOR MODAL */}
+      <QuotationModal
+        isOpen={isNewQuotationOpen}
+        onClose={() => {
+          setIsNewQuotationOpen(false);
+          setEditQuotation(null);
+        }}
+        onSave={handleSaveQuotation}
+        editQuotation={editQuotation}
+        customers={customers}
+      />
 
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Customer Name</label>
-                  <input
-                    type="text"
-                    value={quoteForm.customerName}
-                    onChange={e => setQuoteForm({ ...quoteForm, customerName: e.target.value })}
-                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Plant Capacity (kW)</label>
-                  <input
-                    type="number"
-                    value={quoteForm.capacityKw}
-                    onChange={e => setQuoteForm({ ...quoteForm, capacityKw: Number(e.target.value) })}
-                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5 font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Turnkey Rate (₹ / Watt-peak)</label>
-                  <input
-                    type="number"
-                    value={quoteForm.ratePerWp}
-                    onChange={e => setQuoteForm({ ...quoteForm, ratePerWp: Number(e.target.value) })}
-                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Commercial Discount (₹)</label>
-                  <input
-                    type="number"
-                    value={quoteForm.discountAmount}
-                    onChange={e => setQuoteForm({ ...quoteForm, discountAmount: Number(e.target.value) })}
-                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Base EPC Cost ({quoteForm.capacityKw} kW @ ₹{quoteForm.ratePerWp}/Wp):</span>
-                  <span className="font-semibold">₹{(quoteForm.capacityKw * 1000 * quoteForm.ratePerWp).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Discount:</span>
-                  <span className="text-emerald-700 font-semibold">- ₹{quoteForm.discountAmount.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>GST ({quoteForm.gstRatePercent}% Composite EPC):</span>
-                  <span>₹{calculateQuoteFinancials().gstAmount.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-amber-200">
-                  <span>Net Estimated Turnkey Value:</span>
-                  <span className="text-amber-800">₹{calculateQuoteFinancials().totalAmount.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setIsNewQuotationOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveQuotation}
-                  className="px-5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-2xs"
-                >
-                  Generate Official Proposal
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 6-PAGE PROFESSIONAL PDF PREVIEW MODAL */}
+      <QuotationPdfPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setPreviewQuotation(null);
+        }}
+        quotation={previewQuotation}
+      />
 
       {/* NEW CUSTOMER MODAL */}
       {isNewCustomerOpen && (

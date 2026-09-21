@@ -300,42 +300,101 @@ export interface SiteSurveyData {
 
 export interface QuotationItem {
   id: string;
-  category: 'Panels' | 'Inverter' | 'Structure' | 'Civil Work' | 'Electrical' | 'Installation' | 'Net Metering' | 'Other';
-  description: string;
-  makeModel: string;
+  productName?: string;
+  make?: string;
+  specification?: string;
   quantity: number;
   unit: string;
-  unitPrice: number;
-  totalPrice: number;
+  rate?: number;
+  amount?: number;
+  category?: 'Panels' | 'Inverter' | 'Structure' | 'Civil Work' | 'Electrical' | 'Installation' | 'Net Metering' | 'Other';
+  inventoryRef?: string;
+  // Legacy aliases for backward compatibility
+  description?: string;
+  makeModel?: string;
+  unitPrice?: number;
+  totalPrice?: number;
+}
+
+export interface QuotationPaymentMilestone {
+  id: string;
+  title: string;
+  percentage: number;
+  amount: number;
+  description?: string;
 }
 
 export interface Quotation {
   id: string;
   quotationNumber: string;
+  quotationDate?: string;
   customerId: string;
   customerName: string;
+  companyName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  siteAddress?: string;
+  city?: string;
+  customerGst?: string;
   projectId?: string;
+
+  // System Details
+  systemType?: 'On-Grid' | 'Off-Grid' | 'Hybrid';
   capacityKw: number;
-  ratePerWp?: number;
-  baseAmount?: number;
-  taxAmount?: number;
-  validTill?: string;
+  panelType?: string;
   panelBrand?: string;
   inverterBrand?: string;
   structureType?: string;
+
+  // Dynamic Bill of Materials
   items?: QuotationItem[];
-  subtotal?: number;
+
+  // Cost Breakdown
+  bomSubtotal?: number;
+  installationCharges?: number;
+  transportationCharges?: number;
+  otherCharges?: number;
   discountAmount?: number;
-  gstPercent?: number;
+  baseProjectPrice?: number;
+  costPerKw?: number;
+
+  // Dynamic GST Configuration
+  gstEquipmentPercent?: number; // e.g. 70%
+  gstEquipmentRate?: number;    // e.g. 5%
+  gstServicesPercent?: number;  // e.g. 30%
+  gstServicesRate?: number;     // e.g. 18%
   gstAmount?: number;
-  totalAmount: number;
+  totalProjectCost?: number;
+
+  // Subsidies
+  centralSubsidy?: number;
+  stateSubsidy?: number;
+  totalSubsidy?: number;
+  finalProjectInvestment?: number;
+
+  // Wording & Terms
+  amountInWords?: string;
+  validityDays?: number;
+  validTill?: string;
+  paymentMilestones?: QuotationPaymentMilestone[];
   paymentTerms?: string;
   warrantyDetails?: string;
   termsAndConditions?: string;
+
+  // Status & Timestamps
   status: 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
   validUntil?: string;
   createdAt: string;
+  updatedAt?: string;
   acceptedAt?: string;
+
+  // Legacy fields
+  ratePerWp?: number;
+  baseAmount?: number;
+  taxAmount?: number;
+  subtotal?: number;
+  gstPercent?: number;
+  totalAmount: number;
 }
 
 export type PaymentMilestoneType = 'Advance' | 'Civil/Structure' | 'Installation' | 'Testing/Commissioning' | 'Final Handover';
@@ -380,16 +439,27 @@ export interface Employee {
   id: string;
   employeeCode: string;
   name: string;
-  photoUrl: string;
-  department: 'Management' | 'Sales' | 'Engineering' | 'Civil' | 'Structure' | 'Electrical' | 'Operations' | 'Finance' | 'HR' | 'Service' | 'Installation';
+  photoUrl?: string;
+  department: 'Management' | 'Sales' | 'Engineering' | 'Civil' | 'Structure' | 'Electrical' | 'Operations' | 'Finance' | 'HR' | 'Service' | 'Installation' | string;
   designation: string;
   assignedRole?: UserRole;
   phone: string;
   email: string;
   joiningDate: string;
   salaryMonthly: number;
-  status: 'ACTIVE' | 'ON LEAVE' | 'IN FIELD' | 'TERMINATED';
+  status: 'ACTIVE' | 'ON LEAVE' | 'IN FIELD' | 'TERMINATED' | 'INACTIVE';
   currentSiteLocation?: string;
+
+  // ERP account linkage — no plaintext password
+  loginEnabled: boolean;
+  authUid?: string;
+  systemRole?: UserRole;
+  accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED';
+  accountCreatedAt?: string;
+  accountCreatedBy?: string;
+
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AttendanceRecord {

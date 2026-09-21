@@ -173,10 +173,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper to build or retrieve an application profile associated with the Firebase User
   const resolveProfileForUser = (user: User): UserProfile => {
     const storageKey = USER_PROFILE_STORAGE_KEY + user.uid;
+    const employees = storageService.getEmployees();
+    const cleanUserEmail = (user.email || '').trim().toLowerCase();
+    const linkedEmp = employees.find(
+      e => (e.authUid && e.authUid === user.uid) || (e.email && e.email.trim().toLowerCase() === cleanUserEmail)
+    );
+
     const cached = localStorage.getItem(storageKey);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
+        // Keep in sync with any updated systemRole or profile details from employee record
+        if (linkedEmp) {
+          if (linkedEmp.systemRole) parsed.role = linkedEmp.systemRole;
+          if (linkedEmp.name) parsed.name = linkedEmp.name;
+          if (linkedEmp.department) parsed.department = linkedEmp.department;
+          if (linkedEmp.designation) parsed.designation = linkedEmp.designation;
+          if (linkedEmp.phone) parsed.phone = linkedEmp.phone;
+        }
         return {
           ...parsed,
           id: user.uid,
@@ -187,15 +201,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const defaultRole: UserRole = 'Super Admin';
+    const defaultRole: UserRole = linkedEmp?.systemRole || linkedEmp?.assignedRole || 'Super Admin';
     const profile: UserProfile = {
       id: user.uid,
-      name: user.displayName || (user.email ? user.email.split('@')[0] : 'Solar User'),
+      name: linkedEmp?.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Solar User'),
       email: user.email || '',
       role: defaultRole,
-      phone: user.phoneNumber || '+91 98250 11223',
-      department: 'Management',
-      designation: 'Managing Director',
+      phone: linkedEmp?.phone || user.phoneNumber || '+91 98250 11223',
+      department: linkedEmp?.department || 'Management',
+      designation: linkedEmp?.designation || (defaultRole as string),
       assignedProjects: []
     };
 
@@ -248,21 +262,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string): Promise<void> => {
     setLoading(true);
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const employees = storageService.getEmployees();
+      const linkedEmp = employees.find(
+        e => e.email && e.email.trim().toLowerCase() === cleanEmail
+      );
+
       if (isFirebaseReady) {
         const user = await loginWithEmail(email, pass);
+
+        if (linkedEmp) {
+          if (linkedEmp.loginEnabled === false) {
+            await logoutUser();
+            throw new Error('ERP login is not enabled for this employee account. Please contact an administrator.');
+          }
+          if (linkedEmp.accountStatus === 'DISABLED') {
+            await logoutUser();
+            throw new Error('This employee account has been disabled by an administrator.');
+          }
+        }
+
         setFirebaseUser(user);
         const profile = resolveProfileForUser(user);
         saveUserProfile(profile);
       } else {
         // Fallback for pre-configuration local testing
+        if (linkedEmp) {
+          if (linkedEmp.loginEnabled === false) {
+            throw new Error('ERP login is not enabled for this employee account. Please contact an administrator.');
+          }
+          if (linkedEmp.accountStatus === 'DISABLED') {
+            throw new Error('This employee account has been disabled by an administrator.');
+          }
+        }
+
+        const role: UserRole = linkedEmp?.systemRole || linkedEmp?.assignedRole || 'Super Admin';
         const offlineProfile: UserProfile = {
-          id: 'usr-local-' + Date.now(),
-          name: email.split('@')[0] || 'Solar Team Member',
+          id: linkedEmp?.authUid || ('usr-local-' + Date.now()),
+          name: linkedEmp?.name || email.split('@')[0] || 'Solar Team Member',
           email: email.trim(),
-          role: 'Super Admin',
-          phone: '+91 98250 11223',
-          department: 'Management',
-          designation: 'Managing Director',
+          role,
+          phone: linkedEmp?.phone || '+91 98250 11223',
+          department: linkedEmp?.department || 'Management',
+          designation: linkedEmp?.designation || (role as string),
           assignedProjects: []
         };
         saveUserProfile(offlineProfile);

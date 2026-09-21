@@ -50,6 +50,7 @@ import {
   assertValid,
   DuplicateRecordError
 } from './validation';
+import { REFERENCE_5KW_QUOTATION } from '../utils/quotationDefaults';
 
 export {
   DuplicateRecordError,
@@ -129,7 +130,12 @@ const initialEmployees: Employee[] = [
     email: 'vikram.patel@solarpulse.com',
     joiningDate: '2021-01-15',
     salaryMonthly: 180000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Super Admin',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2021-01-15T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-2',
@@ -142,7 +148,12 @@ const initialEmployees: Employee[] = [
     email: 'amit.sharma@solarpulse.com',
     joiningDate: '2021-04-01',
     salaryMonthly: 95000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Project Manager',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2021-04-01T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-3',
@@ -156,7 +167,12 @@ const initialEmployees: Employee[] = [
     joiningDate: '2022-02-10',
     salaryMonthly: 65000,
     status: 'IN FIELD',
-    currentSiteLocation: 'Sanand Industrial Estate, Plot 42'
+    currentSiteLocation: 'Sanand Industrial Estate, Plot 42',
+    loginEnabled: true,
+    systemRole: 'Site Survey Engineer',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-02-10T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-4',
@@ -169,7 +185,12 @@ const initialEmployees: Employee[] = [
     email: 'priya.verma@solarpulse.com',
     joiningDate: '2021-08-15',
     salaryMonthly: 75000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Sales Manager',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2021-08-15T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-5',
@@ -182,7 +203,12 @@ const initialEmployees: Employee[] = [
     email: 'rahul.mehta@solarpulse.com',
     joiningDate: '2023-03-01',
     salaryMonthly: 45000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Sales Executive',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2023-03-01T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-6',
@@ -195,7 +221,12 @@ const initialEmployees: Employee[] = [
     email: 'dinesh.yadav@solarpulse.com',
     joiningDate: '2022-06-15',
     salaryMonthly: 48000,
-    status: 'IN FIELD'
+    status: 'IN FIELD',
+    loginEnabled: true,
+    systemRole: 'Structure Team',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-06-15T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-7',
@@ -208,7 +239,12 @@ const initialEmployees: Employee[] = [
     email: 'manoj.tiwari@solarpulse.com',
     joiningDate: '2022-09-01',
     salaryMonthly: 46000,
-    status: 'IN FIELD'
+    status: 'IN FIELD',
+    loginEnabled: true,
+    systemRole: 'Installation Team',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-09-01T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-8',
@@ -221,7 +257,12 @@ const initialEmployees: Employee[] = [
     email: 'ankit.joshi@solarpulse.com',
     joiningDate: '2021-11-20',
     salaryMonthly: 62000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Electrical Team',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2021-11-20T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-9',
@@ -234,7 +275,12 @@ const initialEmployees: Employee[] = [
     email: 'sneha.kulkarni@solarpulse.com',
     joiningDate: '2021-03-10',
     salaryMonthly: 68000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Accountant',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2021-03-10T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-10',
@@ -247,7 +293,12 @@ const initialEmployees: Employee[] = [
     email: 'neha.gupta@solarpulse.com',
     joiningDate: '2022-01-05',
     salaryMonthly: 58000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'HR Manager',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-01-05T10:00:00Z',
+    accountCreatedBy: 'System Init'
   },
   {
     id: 'emp-11',
@@ -260,7 +311,12 @@ const initialEmployees: Employee[] = [
     email: 'rohit.verma@solarpulse.com',
     joiningDate: '2022-08-12',
     salaryMonthly: 52000,
-    status: 'ACTIVE'
+    status: 'ACTIVE',
+    loginEnabled: true,
+    systemRole: 'Service Manager',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-08-12T10:00:00Z',
+    accountCreatedBy: 'System Init'
   }
 ];
 
@@ -1648,6 +1704,7 @@ const initialSurveys: SiteSurveyData[] = [
 ];
 
 const initialQuotations: Quotation[] = [
+  REFERENCE_5KW_QUOTATION,
   {
     id: 'quote-1',
     quotationNumber: 'QTN-2026-0042',
@@ -3380,7 +3437,18 @@ class StorageService {
 
   // --- Employees & HRMS ---
   getEmployees(): Employee[] {
-    return this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, initialEmployees);
+    const list = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, initialEmployees);
+    return list.map(emp => {
+      if (typeof emp.loginEnabled !== 'boolean') {
+        return {
+          ...emp,
+          loginEnabled: true,
+          systemRole: emp.systemRole || emp.assignedRole || 'Project Manager',
+          accountStatus: (emp.status === 'TERMINATED' ? 'DISABLED' : 'ACTIVE') as Employee['accountStatus']
+        };
+      }
+      return emp;
+    });
   }
 
   saveEmployee(emp: Employee): void {
@@ -3600,6 +3668,10 @@ class StorageService {
     return this.get<Quotation[]>(STORAGE_KEYS.QUOTATIONS, initialQuotations);
   }
 
+  getQuotationById(id: string): Quotation | undefined {
+    return this.getQuotations().find(q => q.id === id || q.quotationNumber === id);
+  }
+
   saveQuotation(quote: Quotation): void {
     const quotes = this.getQuotations();
     const index = quotes.findIndex(q => q.id === quote.id);
@@ -3609,6 +3681,29 @@ class StorageService {
       quotes.unshift(quote);
     }
     this.set(STORAGE_KEYS.QUOTATIONS, quotes);
+  }
+
+  deleteQuotation(id: string): void {
+    const quotes = this.getQuotations().filter(q => q.id !== id);
+    this.set(STORAGE_KEYS.QUOTATIONS, quotes);
+  }
+
+  getNextQuotationNumber(): string {
+    const quotes = this.getQuotations();
+    const year = new Date().getFullYear();
+    const prefix = `QTN-${year}-`;
+    let maxNum = 0;
+    quotes.forEach(q => {
+      if (q.quotationNumber && q.quotationNumber.startsWith(prefix)) {
+        const parts = q.quotationNumber.split('-');
+        const n = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(n) && n > maxNum) {
+          maxNum = n;
+        }
+      }
+    });
+    const nextVal = (maxNum + 1).toString().padStart(3, '0');
+    return `${prefix}${nextVal}`;
   }
 
   // --- Notifications ---

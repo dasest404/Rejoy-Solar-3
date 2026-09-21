@@ -193,7 +193,9 @@ export function parseAndValidateCSV(text: string, module: ExportModule): ImportV
         joiningDate: cols[6] || new Date().toISOString().slice(0, 10),
         salaryMonthly: Number(cols[7]) || 0,
         status: 'ACTIVE',
-        photoUrl: ''
+        photoUrl: '',
+        loginEnabled: false,
+        accountStatus: 'PENDING'
       });
     } else if (module === 'Payments') {
       if (!cols[0] || isNaN(Number(cols[3]))) {
