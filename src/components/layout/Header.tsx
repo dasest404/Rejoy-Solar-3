@@ -3,7 +3,6 @@ import { useAuth, ROLE_DEFINITIONS } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { UserRole } from '../../types/solar';
 import {
-  Sun,
   Search,
   Bell,
   CheckCheck,
@@ -53,17 +52,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
         <div
           onClick={() => setActiveView('dashboard')}
-          className="flex items-center gap-2.5 cursor-pointer select-none group"
+          className="flex items-center cursor-pointer select-none group"
+          title="Rejoy Solar Power Pvt. Ltd."
         >
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white shadow-xs group-hover:scale-105 transition-transform">
-            <Sun className="w-5 h-5" />
-          </div>
-          <div className="hidden sm:block">
-            <span className="text-base font-black tracking-tight text-slate-900 flex items-center gap-1">
-              SolarPulse <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">EPC</span>
-            </span>
-            <p className="text-[10px] text-slate-600 font-medium tracking-wide">Turnkey Solar ERP & CRM</p>
-          </div>
+          <img
+            src="/logo-dark.png"
+            alt="Rejoy Solar Power Pvt. Ltd."
+            className="h-10 sm:h-11 w-auto max-h-12 object-contain group-hover:opacity-90 transition-opacity"
+            referrerPolicy="no-referrer"
+          />
         </div>
       </div>
 
