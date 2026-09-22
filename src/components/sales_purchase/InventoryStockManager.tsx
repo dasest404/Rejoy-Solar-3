@@ -47,22 +47,28 @@ export const InventoryStockManager: React.FC = () => {
   }, [products]);
 
   const filteredProducts = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return products;
+
     return products.filter(p => {
       return (
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase())
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.brand || '').toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q)
       );
     });
   }, [products, searchQuery]);
 
   const filteredMovements = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+
     return movements.filter(m => {
       const matchesSearch =
-        m.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.referenceNumber && m.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()));
+        !q ||
+        (m.productName || '').toLowerCase().includes(q) ||
+        (m.sku || '').toLowerCase().includes(q) ||
+        (m.referenceNumber && (m.referenceNumber || '').toLowerCase().includes(q));
       const matchesType = movementFilter === 'ALL' || m.movementType === movementFilter;
       return matchesSearch && matchesType;
     });

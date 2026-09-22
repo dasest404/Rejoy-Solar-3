@@ -86,25 +86,31 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
 
   // Filtered lists
   const filteredLeads = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    if (!term) return leads;
     return leads.filter(l =>
-      l.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.phone.includes(searchTerm) ||
-      (l.companyName && l.companyName.toLowerCase().includes(searchTerm.toLowerCase()))
+      (l.customerName || '').toLowerCase().includes(term) ||
+      (l.phone || '').includes(term) ||
+      ((l.companyName || '').toLowerCase().includes(term))
     );
   }, [leads, searchTerm]);
 
   const filteredCustomers = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    if (!term) return customers;
     return customers.filter(c =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm) ||
-      c.city.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.name || '').toLowerCase().includes(term) ||
+      (c.phone || '').includes(term) ||
+      ((c.city || '').toLowerCase().includes(term))
     );
   }, [customers, searchTerm]);
 
   const filteredQuotations = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    if (!term) return quotations;
     return quotations.filter(q =>
-      q.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+      (q.quotationNumber || '').toLowerCase().includes(term) ||
+      (q.customerName || '').toLowerCase().includes(term)
     );
   }, [quotations, searchTerm]);
 
@@ -370,7 +376,7 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={`Search ${activeTab.toLowerCase()}...`}
+              placeholder={`Search ${(activeTab || '').toLowerCase()}...`}
               className="w-full text-xs pl-8 pr-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
             />
           </div>

@@ -82,11 +82,14 @@ export const PurchaseOrderEntry: React.FC = () => {
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+
     return orders.filter(o => {
       const matchesSearch =
-        o.purchaseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.vendorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (o.projectTitle && o.projectTitle.toLowerCase().includes(searchQuery.toLowerCase()));
+        !q ||
+        (o.purchaseNumber || '').toLowerCase().includes(q) ||
+        (o.vendorName || '').toLowerCase().includes(q) ||
+        ((o.projectTitle || '').toLowerCase().includes(q));
       const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
       return matchesSearch && matchesStatus;
     });

@@ -50,11 +50,14 @@ export const BOMManager: React.FC = () => {
   const products = useMemo(() => storageService.getProducts(), [refreshTrigger]);
 
   const filteredBOMs = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+
     return boms.filter(bom => {
       const matchesSearch =
-        bom.bomNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bom.projectTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        bom.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (bom.bomNumber || '').toLowerCase().includes(q) ||
+        (bom.projectTitle || '').toLowerCase().includes(q) ||
+        (bom.customerName || '').toLowerCase().includes(q);
 
       const matchesStatus = statusFilter === 'ALL' || bom.status === statusFilter;
       return matchesSearch && matchesStatus;

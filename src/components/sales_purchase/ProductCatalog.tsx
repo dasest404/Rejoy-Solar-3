@@ -56,12 +56,15 @@ export const ProductCatalog: React.FC = () => {
   ];
 
   const filteredProducts = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+
     return products.filter(p => {
       const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.brand || '').toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q);
       const matchesCat = categoryFilter === 'ALL' || p.category === categoryFilter;
       return matchesSearch && matchesCat;
     });

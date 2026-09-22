@@ -357,9 +357,10 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
     const neededPanels = Math.max(1, Math.ceil((cap * 1000) / panelWatts));
 
     const updated = items.map(item => {
-      const isPanel = item.category === 'Panels' || item.productName.toLowerCase().includes('module') || item.productName.toLowerCase().includes('panel');
-      const isInverter = item.category === 'Inverter' || item.productName.toLowerCase().includes('inverter');
-      const isStructure = item.category === 'Structure' || item.productName.toLowerCase().includes('structure');
+      const pName = (item.productName || '').toLowerCase();
+      const isPanel = item.category === 'Panels' || pName.includes('module') || pName.includes('panel');
+      const isInverter = item.category === 'Inverter' || pName.includes('inverter');
+      const isStructure = item.category === 'Structure' || pName.includes('structure');
 
       if (isPanel) {
         return {
@@ -456,18 +457,19 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
     items.forEach(it => {
       const amt = it.amount || 0;
       const cat = it.category || 'Other';
-      if (cat === 'Panels' || it.productName.toLowerCase().includes('module') || it.productName.toLowerCase().includes('panel')) {
+      const itName = (it.productName || '').toLowerCase();
+      if (cat === 'Panels' || itName.includes('module') || itName.includes('panel')) {
         moduleCount += Number(it.quantity || 0);
         panelSubtotal += amt;
-        const match = (it.productName + ' ' + (it.specification || '')).match(/(\d{3})\s*W/i);
+        const match = ((it.productName || '') + ' ' + (it.specification || '')).match(/(\d{3})\s*W/i);
         if (match && Number(match[1]) > 300 && Number(match[1]) < 800) {
           moduleWattage = Number(match[1]);
         }
-      } else if (cat === 'Inverter' || it.productName.toLowerCase().includes('inverter')) {
+      } else if (cat === 'Inverter' || itName.includes('inverter')) {
         inverterSubtotal += amt;
-      } else if (cat === 'Structure' || it.productName.toLowerCase().includes('structure')) {
+      } else if (cat === 'Structure' || itName.includes('structure')) {
         structureSubtotal += amt;
-      } else if (cat === 'Electrical' || cat === 'Net Metering' || it.productName.toLowerCase().includes('cable') || it.productName.toLowerCase().includes('box')) {
+      } else if (cat === 'Electrical' || cat === 'Net Metering' || itName.includes('cable') || itName.includes('box')) {
         electricalSubtotal += amt;
       } else {
         otherSubtotal += amt;
@@ -667,36 +669,38 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs p-0 sm:p-3 md:p-6 overflow-hidden animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 w-full sm:max-w-5xl md:max-w-6xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[92vh] rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
-              <FileText className="w-5 h-5" />
+        <div className="px-3.5 sm:px-6 py-3 sm:py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0 hidden xs:block">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-white tracking-wide">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-wide truncate">
                 {editQuotation ? 'Edit Solar EPC Quotation' : 'Generate Dynamic Solar Quotation & Proposal'}
               </h2>
-              <p className="text-xs text-slate-400">
-                Turnkey 6-page technical proposal with dynamic BOM, GST split & PM Surya Ghar subsidies
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                {customerName ? `${customerName} • ` : ''}{capacityKw} kW • Turnkey Proposal with Dynamic BOM
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={handleLoadReferenceBOM}
-              className="px-3 py-1.5 text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl flex items-center gap-1.5 transition-colors"
+              className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl flex items-center gap-1.5 transition-colors"
               title="Reset values to the 5 KW Waaree reference template"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Load 5KW Reference</span>
+              <span className="hidden sm:inline">Load 5KW Reference</span>
+              <span className="sm:hidden text-[11px]">5KW Preset</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+              aria-label="Close dialog"
+              className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
@@ -704,12 +708,12 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto text-xs font-semibold">
+        <div className="flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 bg-slate-100 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto text-xs font-semibold scrollbar-none">
           {[
-            { id: 'details', label: '1. Client & Technical Specs', icon: Building2 },
-            { id: 'bom', label: `2. Dynamic BOM (${items.length} Items)`, icon: Layers },
-            { id: 'cost', label: '3. Cost, GST & Subsidies', icon: DollarSign },
-            { id: 'milestones', label: '4. Milestones & Validity', icon: Sparkles }
+            { id: 'details', label: '1. Specs & Client', mobileLabel: '1. Specs', icon: Building2 },
+            { id: 'bom', label: `2. Dynamic BOM (${items.length})`, mobileLabel: `2. BOM (${items.length})`, icon: Layers },
+            { id: 'cost', label: '3. Cost, GST & Subsidy', mobileLabel: '3. Cost & GST', icon: DollarSign },
+            { id: 'milestones', label: '4. Milestones & Terms', mobileLabel: '4. Terms', icon: Sparkles }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -717,21 +721,22 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition-all ${
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl whitespace-nowrap shrink-0 transition-all ${
                   isActive
                     ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/50'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.mobileLabel}</span>
               </button>
             );
           })}
         </div>
 
         {/* Form Body Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 overscroll-contain">
           {/* TAB 1: CLIENT & SYSTEM DETAILS */}
           {activeTab === 'details' && (
             <div className="space-y-6 animate-in fade-in duration-150">
@@ -801,19 +806,19 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
 
               {/* Customer Information */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
                     <Building2 className="w-4 h-4" />
                     <span>Client / Customer Details</span>
                   </h3>
 
                   {customers.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">Pick from existing:</span>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-xs text-slate-500 shrink-0">Pick existing:</span>
                       <select
                         value={customerId}
                         onChange={e => handleSelectCustomer(e.target.value)}
-                        className="px-2.5 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold"
+                        className="flex-1 sm:flex-initial px-2.5 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-semibold max-w-full sm:max-w-xs truncate"
                       >
                         <option value="">-- Select Registered Client --</option>
                         {customers.map(c => (
@@ -1048,33 +1053,57 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsInventoryPickerOpen(true)}
-                    className="px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
                   >
                     <PackagePlus className="w-4 h-4" />
                     <span>Add from Inventory</span>
                   </button>
 
+                  {/* Quick Add Product Dropdown */}
+                  {availableProducts.length > 0 && (
+                    <select
+                      onChange={e => {
+                        if (e.target.value) {
+                          const prod = availableProducts.find(p => p.id === e.target.value);
+                          if (prod) handleAddProductFromInventory(prod, 1);
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                      aria-label="Quick Add from Inventory"
+                      className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 max-w-[170px] sm:max-w-[190px] truncate"
+                    >
+                      <option value="" disabled>+ Quick Add Product...</option>
+                      {availableProducts.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.sku}) &bull; Stock: {p.currentStock}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handleAddItem('Other')}
-                    className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition-colors"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition-colors shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Add Blank Item</span>
+                    <span className="hidden sm:inline">Add Blank Item</span>
+                    <span className="sm:hidden">Blank Item</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleAutoScaleForCapacity}
                     title="Recalculate panel quantity and inverter specs to match system capacity"
-                    className="px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center gap-1.5 transition-colors"
+                    className="px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
                   >
                     <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                    <span>Scale for {capacityKw} kW</span>
+                    <span>Scale {capacityKw} kW</span>
                   </button>
 
                   <select
@@ -1085,7 +1114,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                       }
                     }}
                     defaultValue=""
-                    className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300"
+                    className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 max-w-[150px] sm:max-w-[180px] truncate"
                   >
                     <option value="" disabled>Load Preset BOM...</option>
                     {BOM_PRESET_TEMPLATES.map(tpl => (
@@ -1099,7 +1128,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                     type="button"
                     onClick={handleCopyBomToClipboard}
                     title="Copy BOM table as formatted text"
-                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors"
+                    className="p-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors shrink-0"
                   >
                     {copiedBom ? <Check className="w-4 h-4 text-emerald-500" /> : <ClipboardCopy className="w-4 h-4" />}
                   </button>
@@ -1112,7 +1141,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                         setItems([]);
                       }
                     }}
-                    className="px-2.5 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors"
+                    className="px-2.5 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors shrink-0"
                   >
                     Clear
                   </button>
@@ -1247,7 +1276,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
 
               {/* Category Filters & Search Toolbar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none sm:flex-wrap">
                   {(['ALL', 'Panels', 'Inverter', 'Structure', 'Electrical', 'Net Metering', 'Other'] as const).map(cat => {
                     const count = cat === 'ALL'
                       ? items.length
@@ -1333,198 +1362,385 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
-                        <tr>
-                          <th className="py-2.5 px-2 text-center w-12"># / Order</th>
-                          <th className="py-2.5 px-3 w-28">Category</th>
-                          <th className="py-2.5 px-3 min-w-[220px]">Product / Material & Specification</th>
-                          <th className="py-2.5 px-3 min-w-[130px]">Make / Brand</th>
-                          <th className="py-2.5 px-2 text-center w-16">Qty</th>
-                          <th className="py-2.5 px-2 text-center w-20">Unit</th>
-                          <th className="py-2.5 px-3 text-right w-28">Rate (₹)</th>
-                          <th className="py-2.5 px-3 text-right w-28">Amount (₹)</th>
-                          <th className="py-2.5 px-2 text-center w-16">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                        {filteredItems.map(item => {
-                          const realIdx = items.findIndex(it => it.id === item.id);
-                          return (
-                            <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                              {/* Index & Order Movers */}
-                              <td className="py-2 px-2 text-center">
-                                <div className="flex items-center justify-center gap-0.5">
-                                  <span className="font-bold text-slate-400 text-[11px] w-4 text-right mr-1">
-                                    {realIdx + 1}
-                                  </span>
-                                  <div className="flex flex-col">
-                                    <button
-                                      type="button"
-                                      disabled={realIdx === 0}
-                                      onClick={() => handleMoveItem(realIdx, 'up')}
-                                      title="Move item up"
-                                      className="text-slate-400 hover:text-slate-800 dark:hover:text-white disabled:opacity-20 transition-colors"
-                                    >
-                                      <ChevronUp className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={realIdx === items.length - 1}
-                                      onClick={() => handleMoveItem(realIdx, 'down')}
-                                      title="Move item down"
-                                      className="text-slate-400 hover:text-slate-800 dark:hover:text-white disabled:opacity-20 transition-colors"
-                                    >
-                                      <ChevronDown className="w-3 h-3" />
-                                    </button>
+                <div className="space-y-3">
+                  {/* Inventory Autocomplete Suggestions (Shared) */}
+                  <datalist id="bom-inventory-suggestions">
+                    {availableProducts.map(p => (
+                      <option key={p.id} value={p.name}>
+                        {p.brand ? `${p.brand} | ` : ''}{p.specification || ''} ({p.currentStock} {p.unit} in stock)
+                      </option>
+                    ))}
+                  </datalist>
+
+                  {/* 1. DESKTOP / TABLET DATA TABLE VIEW (hidden on mobile) */}
+                  <div className="hidden md:block border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
+                          <tr>
+                            <th className="py-2.5 px-2 text-center w-12"># / Order</th>
+                            <th className="py-2.5 px-3 min-w-[280px]">Product / Material & Specification</th>
+                            <th className="py-2.5 px-2 text-center w-16">Qty</th>
+                            <th className="py-2.5 px-2 text-center w-20">Unit</th>
+                            <th className="py-2.5 px-3 text-right w-28">Rate (₹)</th>
+                            <th className="py-2.5 px-3 text-right w-28">Amount (₹)</th>
+                            <th className="py-2.5 px-2 text-center w-16">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                          {filteredItems.map(item => {
+                            const realIdx = items.findIndex(it => it.id === item.id);
+                            return (
+                              <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                {/* Index & Order Movers */}
+                                <td className="py-2 px-2 text-center">
+                                  <div className="flex items-center justify-center gap-0.5">
+                                    <span className="font-bold text-slate-400 text-[11px] w-4 text-right mr-1">
+                                      {realIdx + 1}
+                                    </span>
+                                    <div className="flex flex-col">
+                                      <button
+                                        type="button"
+                                        disabled={realIdx === 0}
+                                        onClick={() => handleMoveItem(realIdx, 'up')}
+                                        title="Move item up"
+                                        className="text-slate-400 hover:text-slate-800 dark:hover:text-white disabled:opacity-20 transition-colors"
+                                      >
+                                        <ChevronUp className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={realIdx === items.length - 1}
+                                        onClick={() => handleMoveItem(realIdx, 'down')}
+                                        title="Move item down"
+                                        className="text-slate-400 hover:text-slate-800 dark:hover:text-white disabled:opacity-20 transition-colors"
+                                      >
+                                        <ChevronDown className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              </td>
+                                </td>
 
-                              {/* Category */}
-                              <td className="py-2 px-3">
-                                <select
-                                  value={item.category || 'Other'}
-                                  onChange={e => handleUpdateItem(item.id, 'category', e.target.value)}
-                                  className={`w-full px-2 py-1 text-[11px] font-bold rounded-lg border focus:ring-1 focus:ring-amber-500 ${getCategoryBadgeColor(item.category)}`}
-                                >
-                                  <option value="Panels">Panels</option>
-                                  <option value="Inverter">Inverter</option>
-                                  <option value="Structure">Structure</option>
-                                  <option value="Electrical">Electrical</option>
-                                  <option value="Net Metering">Net Metering</option>
-                                  <option value="Civil Work">Civil Work</option>
-                                  <option value="Installation">Installation</option>
-                                  <option value="Other">Other</option>
-                                </select>
-                              </td>
-
-                              {/* Product Name & Specs */}
-                              <td className="py-2 px-3">
-                                <div className="flex items-center gap-1.5">
+                                {/* Product Name & Specs */}
+                                <td className="py-2 px-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type="text"
+                                      list="bom-inventory-suggestions"
+                                      value={item.productName}
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        handleUpdateItem(item.id, 'productName', val);
+                                        const matched = availableProducts.find(
+                                          p => (p.name || '').toLowerCase() === (val || '').toLowerCase()
+                                        );
+                                        if (matched) {
+                                          const rate = matched.sellingPrice || matched.unitPrice || 0;
+                                          if (rate > 0) handleUpdateItem(item.id, 'rate', rate);
+                                          if (matched.specification) handleUpdateItem(item.id, 'specification', matched.specification);
+                                          if (matched.unit) {
+                                            const mappedUnit = matched.unit === 'NOS' ? 'Nos' : matched.unit === 'SETS' ? 'Set' : matched.unit === 'METERS' ? 'Mtr' : 'Nos';
+                                            handleUpdateItem(item.id, 'unit', mappedUnit);
+                                          }
+                                          handleUpdateItem(item.id, 'inventoryRef', matched.id);
+                                        }
+                                      }}
+                                      placeholder="Component / Material name (type to search inventory)"
+                                      className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                                    />
+                                    {item.category && item.category !== 'Other' && (
+                                      <span
+                                        className={`px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border shrink-0 ${getCategoryBadgeColor(item.category)}`}
+                                      >
+                                        {item.category}
+                                      </span>
+                                    )}
+                                    {item.inventoryRef && (
+                                      <span
+                                        title="Linked to warehouse product catalog"
+                                        className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0"
+                                      >
+                                        Warehouse
+                                      </span>
+                                    )}
+                                  </div>
                                   <input
                                     type="text"
-                                    value={item.productName}
-                                    onChange={e => handleUpdateItem(item.id, 'productName', e.target.value)}
-                                    placeholder="Component / Material name"
-                                    className="w-full px-2 py-1 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                                    value={item.specification || ''}
+                                    onChange={e => handleUpdateItem(item.id, 'specification', e.target.value)}
+                                    placeholder="Detailed technical specification (optional)"
+                                    className="w-full mt-1 px-2.5 py-0.5 text-[10px] text-slate-500 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500"
                                   />
-                                  {item.inventoryRef && (
-                                    <span
-                                      title="Linked to warehouse product catalog"
-                                      className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0"
+                                </td>
+
+                                {/* Quantity */}
+                                <td className="py-2 px-2 text-center">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={item.quantity}
+                                    onChange={e => handleUpdateItem(item.id, 'quantity', Number(e.target.value))}
+                                    className="w-14 px-1 py-1 text-xs text-center font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                                  />
+                                </td>
+
+                                {/* Unit */}
+                                <td className="py-2 px-2 text-center">
+                                  <select
+                                    value={item.unit}
+                                    onChange={e => handleUpdateItem(item.id, 'unit', e.target.value)}
+                                    className="w-full px-1 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                  >
+                                    <option value="Nos">Nos</option>
+                                    <option value="No">No</option>
+                                    <option value="Set">Set</option>
+                                    <option value="Pair">Pair</option>
+                                    <option value="Lot">Lot</option>
+                                    <option value="kW">kW</option>
+                                    <option value="Mtr">Mtr</option>
+                                    <option value="Kg">Kg</option>
+                                  </select>
+                                </td>
+
+                                {/* Rate */}
+                                <td className="py-2 px-3 text-right">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={item.rate}
+                                    onChange={e => handleUpdateItem(item.id, 'rate', Number(e.target.value))}
+                                    className="w-24 px-2 py-1 text-xs text-right font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                                  />
+                                </td>
+
+                                {/* Amount */}
+                                <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                                  {formatINR(item.amount)}
+                                </td>
+
+                                {/* Actions */}
+                                <td className="py-2 px-2 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDuplicateItem(item.id)}
+                                      title="Duplicate line item"
+                                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-md transition-colors"
                                     >
-                                      Warehouse
-                                    </span>
-                                  )}
-                                </div>
-                                <input
-                                  type="text"
-                                  value={item.specification || ''}
-                                  onChange={e => handleUpdateItem(item.id, 'specification', e.target.value)}
-                                  placeholder="Detailed technical specification (optional)"
-                                  className="w-full mt-1 px-2 py-0.5 text-[10px] text-slate-500 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500"
-                                />
-                              </td>
+                                      <Copy className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteItem(item.id)}
+                                      title="Delete line item"
+                                      className="p-1 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-amber-50 dark:bg-amber-950/30 border-t-2 border-amber-300 dark:border-amber-800/60 font-bold text-xs">
+                          <tr>
+                            <td colSpan={5} className="py-2.5 px-3 text-right text-amber-900 dark:text-amber-300 uppercase tracking-wider">
+                              Total Material Cost (BOM Subtotal):
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-amber-900 dark:text-amber-200 font-black text-sm whitespace-nowrap">
+                              {formatINR(bomSubtotal)}
+                            </td>
+                            <td className="py-2.5 px-2 text-center text-[10px] text-amber-700 dark:text-amber-400">
+                              {items.length} items
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
 
-                              {/* Make / Brand */}
-                              <td className="py-2 px-3">
-                                <input
-                                  type="text"
-                                  value={item.make}
-                                  onChange={e => handleUpdateItem(item.id, 'make', e.target.value)}
-                                  placeholder="Make / Brand"
-                                  className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
-                                />
-                              </td>
+                  {/* 2. MOBILE / TABLET TOUCH-OPTIMIZED CARD VIEW (visible on < md screens) */}
+                  <div className="md:hidden space-y-3">
+                    {filteredItems.map(item => {
+                      const realIdx = items.findIndex(it => it.id === item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-xs space-y-2.5"
+                        >
+                          {/* Card Header: Index, Badge & Quick Reorder / Actions */}
+                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-bold flex items-center justify-center shrink-0">
+                                {realIdx + 1}
+                              </span>
+                              {item.category && item.category !== 'Other' && (
+                                <span className={`px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border shrink-0 ${getCategoryBadgeColor(item.category)}`}>
+                                  {item.category}
+                                </span>
+                              )}
+                              {item.inventoryRef && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                                  Warehouse Stock
+                                </span>
+                              )}
+                            </div>
 
-                              {/* Quantity */}
-                              <td className="py-2 px-2 text-center">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={item.quantity}
-                                  onChange={e => handleUpdateItem(item.id, 'quantity', Number(e.target.value))}
-                                  className="w-14 px-1 py-1 text-xs text-center font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
-                                />
-                              </td>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                disabled={realIdx === 0}
+                                onClick={() => handleMoveItem(realIdx, 'up')}
+                                title="Move up"
+                                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 rounded"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={realIdx === items.length - 1}
+                                onClick={() => handleMoveItem(realIdx, 'down')}
+                                title="Move down"
+                                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 disabled:opacity-20 rounded"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateItem(item.id)}
+                                title="Duplicate item"
+                                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item.id)}
+                                title="Delete item"
+                                className="p-1 text-slate-400 hover:text-red-500 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
 
-                              {/* Unit */}
-                              <td className="py-2 px-2 text-center">
-                                <select
-                                  value={item.unit}
-                                  onChange={e => handleUpdateItem(item.id, 'unit', e.target.value)}
-                                  className="w-full px-1 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                                >
-                                  <option value="Nos">Nos</option>
-                                  <option value="No">No</option>
-                                  <option value="Set">Set</option>
-                                  <option value="Pair">Pair</option>
-                                  <option value="Lot">Lot</option>
-                                  <option value="kW">kW</option>
-                                  <option value="Mtr">Mtr</option>
-                                  <option value="Kg">Kg</option>
-                                </select>
-                              </td>
+                          {/* Component / Product Name */}
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                              Component / Product Name
+                            </label>
+                            <input
+                              type="text"
+                              list="bom-inventory-suggestions"
+                              value={item.productName}
+                              onChange={e => {
+                                const val = e.target.value;
+                                handleUpdateItem(item.id, 'productName', val);
+                                const matched = availableProducts.find(
+                                  p => (p.name || '').toLowerCase() === (val || '').toLowerCase()
+                                );
+                                if (matched) {
+                                  const rate = matched.sellingPrice || matched.unitPrice || 0;
+                                  if (rate > 0) handleUpdateItem(item.id, 'rate', rate);
+                                  if (matched.specification) handleUpdateItem(item.id, 'specification', matched.specification);
+                                  if (matched.unit) {
+                                    const mappedUnit = matched.unit === 'NOS' ? 'Nos' : matched.unit === 'SETS' ? 'Set' : matched.unit === 'METERS' ? 'Mtr' : 'Nos';
+                                    handleUpdateItem(item.id, 'unit', mappedUnit);
+                                  }
+                                  handleUpdateItem(item.id, 'inventoryRef', matched.id);
+                                }
+                              }}
+                              placeholder="Component name (type to search inventory)"
+                              className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
 
-                              {/* Rate */}
-                              <td className="py-2 px-3 text-right">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={item.rate}
-                                  onChange={e => handleUpdateItem(item.id, 'rate', Number(e.target.value))}
-                                  className="w-24 px-2 py-1 text-xs text-right font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
-                                />
-                              </td>
+                          {/* Specification */}
+                          <div>
+                            <input
+                              type="text"
+                              value={item.specification || ''}
+                              onChange={e => handleUpdateItem(item.id, 'specification', e.target.value)}
+                              placeholder="Technical specifications (optional)..."
+                              className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 focus:bg-white dark:focus:bg-slate-900 focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
 
-                              {/* Amount */}
-                              <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                                {formatINR(item.amount)}
-                              </td>
+                          {/* Quantities, Unit & Rate Inputs */}
+                          <div className="grid grid-cols-3 gap-2 pt-1 items-end">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
+                                Qty
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={e => handleUpdateItem(item.id, 'quantity', Number(e.target.value))}
+                                className="w-full px-2 py-1.5 text-xs text-center font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
 
-                              {/* Actions */}
-                              <td className="py-2 px-2 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDuplicateItem(item.id)}
-                                    title="Duplicate line item"
-                                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-md transition-colors"
-                                  >
-                                    <Copy className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteItem(item.id)}
-                                    title="Delete line item"
-                                    className="p-1 text-slate-400 hover:text-red-500 rounded-md transition-colors"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot className="bg-amber-50 dark:bg-amber-950/30 border-t-2 border-amber-300 dark:border-amber-800/60 font-bold text-xs">
-                        <tr>
-                          <td colSpan={6} className="py-2.5 px-3 text-right text-amber-900 dark:text-amber-300 uppercase tracking-wider">
-                            Total Material Cost (BOM Subtotal):
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-amber-900 dark:text-amber-200 font-black text-sm whitespace-nowrap">
-                            {formatINR(bomSubtotal)}
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-[10px] text-amber-700 dark:text-amber-400">
-                            {items.length} items
-                          </td>
-                          <td />
-                        </tr>
-                      </tfoot>
-                    </table>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
+                                Unit
+                              </label>
+                              <select
+                                value={item.unit}
+                                onChange={e => handleUpdateItem(item.id, 'unit', e.target.value)}
+                                className="w-full px-1.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                              >
+                                <option value="Nos">Nos</option>
+                                <option value="No">No</option>
+                                <option value="Set">Set</option>
+                                <option value="Pair">Pair</option>
+                                <option value="Lot">Lot</option>
+                                <option value="kW">kW</option>
+                                <option value="Mtr">Mtr</option>
+                                <option value="Kg">Kg</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-0.5">
+                                Rate (₹)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.rate}
+                                onChange={e => handleUpdateItem(item.id, 'rate', Number(e.target.value))}
+                                className="w-full px-2 py-1.5 text-xs text-right font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Line Total */}
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
+                            <span className="text-slate-500 dark:text-slate-400 font-medium">Line Amount:</span>
+                            <span className="font-black text-amber-700 dark:text-amber-300 text-sm">
+                              {formatINR(item.amount)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Mobile Summary Card */}
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-300 dark:border-amber-800/60 flex items-center justify-between">
+                      <div>
+                        <div className="text-[11px] font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wide">
+                          Total Material Cost
+                        </div>
+                        <div className="text-[10px] text-amber-700 dark:text-amber-400">
+                          {items.length} items configured
+                        </div>
+                      </div>
+                      <div className="text-base font-black text-amber-950 dark:text-amber-200">
+                        {formatINR(bomSubtotal)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1743,7 +1959,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
           {/* TAB 4: PAYMENT MILESTONES & VALIDITY */}
           {activeTab === 'milestones' && (
             <div className="space-y-6 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Milestone Payment Schedule
@@ -1753,7 +1969,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
                     isMilestoneValid
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
@@ -1782,66 +1998,68 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
               )}
 
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-3 w-12 text-center">#</th>
-                      <th className="py-2.5 px-3 w-48">Milestone Title</th>
-                      <th className="py-2.5 px-3">Condition / Trigger</th>
-                      <th className="py-2.5 px-3 text-center w-24">Share (%)</th>
-                      <th className="py-2.5 px-3 text-right w-36">Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {milestones.map((m, idx) => (
-                      <tr key={m.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-400">Stage 0{idx + 1}</td>
-                        <td className="py-2.5 px-3">
-                          <input
-                            type="text"
-                            value={m.title}
-                            onChange={e => handleUpdateMilestone(m.id, 'title', e.target.value)}
-                            className="w-full px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                          />
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[520px]">
+                    <thead className="bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-3 w-12 text-center">#</th>
+                        <th className="py-2.5 px-3 w-48">Milestone Title</th>
+                        <th className="py-2.5 px-3">Condition / Trigger</th>
+                        <th className="py-2.5 px-3 text-center w-24">Share (%)</th>
+                        <th className="py-2.5 px-3 text-right w-36">Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {milestones.map((m, idx) => (
+                        <tr key={m.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-400">Stage 0{idx + 1}</td>
+                          <td className="py-2.5 px-3">
+                            <input
+                              type="text"
+                              value={m.title}
+                              onChange={e => handleUpdateMilestone(m.id, 'title', e.target.value)}
+                              className="w-full px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <input
+                              type="text"
+                              value={m.description || ''}
+                              onChange={e => handleUpdateMilestone(m.id, 'description', e.target.value)}
+                              className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={m.percentage}
+                              onChange={e => handleUpdateMilestone(m.id, 'percentage', Number(e.target.value))}
+                              className="w-20 px-2 py-1 text-xs text-center font-bold text-amber-800 dark:text-amber-400 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                            {formatINR(m.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-100 dark:bg-slate-800 font-bold text-xs border-t border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <td colSpan={3} className="py-2.5 px-3 text-right uppercase tracking-wider">
+                          Total Contractual Payment:
                         </td>
-                        <td className="py-2.5 px-3">
-                          <input
-                            type="text"
-                            value={m.description || ''}
-                            onChange={e => handleUpdateMilestone(m.id, 'description', e.target.value)}
-                            className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                          />
+                        <td className="py-2.5 px-3 text-center font-black text-amber-800 dark:text-amber-400">
+                          {milestoneTotalPercentage}%
                         </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={m.percentage}
-                            onChange={e => handleUpdateMilestone(m.id, 'percentage', Number(e.target.value))}
-                            className="w-20 px-2 py-1 text-xs text-center font-bold text-amber-800 dark:text-amber-400 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                          />
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
-                          {formatINR(m.amount)}
+                        <td className="py-2.5 px-3 text-right text-slate-900 dark:text-white font-black">
+                          {formatINR(totalProjectCost)}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-slate-100 dark:bg-slate-800 font-bold text-xs border-t border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <td colSpan={3} className="py-2.5 px-3 text-right uppercase tracking-wider">
-                        Total Contractual Payment:
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-black text-amber-800 dark:text-amber-400">
-                        {milestoneTotalPercentage}%
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-slate-900 dark:text-white font-black">
-                        {formatINR(totalProjectCost)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
               {/* Validity & Terms */}
@@ -1858,29 +2076,35 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
-          >
-            Cancel
-          </button>
+        <div className="px-3.5 sm:px-6 py-3 sm:py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 shrink-0">
+          <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 sm:px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <div className="sm:hidden text-right">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Net Payable</span>
+              <span className="text-xs font-black text-amber-600 dark:text-amber-400">{formatINR(finalProjectInvestment)}</span>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={() => handleSubmit(true)}
-              className="px-4 py-2 text-xs font-bold bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl shadow-xs flex items-center gap-1.5 transition-colors border border-slate-700"
+              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs font-bold bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors border border-slate-700"
             >
-              <Eye className="w-4 h-4 text-amber-400" />
+              <Eye className="w-4 h-4 text-amber-400 shrink-0" />
               <span>Save & View PDF</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSubmit(false)}
-              className="px-5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl shadow-xs transition-colors"
+              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl shadow-xs transition-colors text-center"
             >
               {editQuotation ? 'Update Quotation' : 'Save Quotation'}
             </button>
@@ -1890,8 +2114,8 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
 
       {/* Warehouse Product Catalog Picker Modal */}
       {isInventoryPickerOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 md:p-5">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-slate-200 dark:border-slate-800 w-full sm:max-w-4xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[88vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -1940,7 +2164,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
               </div>
 
               {/* Category Filter Pills */}
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none sm:flex-wrap">
                 {[
                   { key: 'ALL', label: 'All Catalog' },
                   { key: 'Solar Panels', label: 'Solar Panels' },
@@ -1964,7 +2188,7 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                       key={tab.key}
                       type="button"
                       onClick={() => setInventoryCategoryFilter(tab.key)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-colors ${
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl border whitespace-nowrap shrink-0 transition-colors ${
                         isActive
                           ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
                           : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -1996,11 +2220,11 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                   if (inventorySearch.trim()) {
                     const q = inventorySearch.toLowerCase();
                     const match =
-                      p.name.toLowerCase().includes(q) ||
-                      p.sku.toLowerCase().includes(q) ||
-                      p.brand.toLowerCase().includes(q) ||
-                      p.specification.toLowerCase().includes(q) ||
-                      p.category.toLowerCase().includes(q);
+                      (p.name || '').toLowerCase().includes(q) ||
+                      (p.sku || '').toLowerCase().includes(q) ||
+                      (p.brand || '').toLowerCase().includes(q) ||
+                      (p.specification || '').toLowerCase().includes(q) ||
+                      (p.category || '').toLowerCase().includes(q);
                     if (!match) return false;
                   }
                   return true;
@@ -2041,8 +2265,8 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-right">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                        <div className="text-left sm:text-right">
                           <div className="text-xs font-black text-slate-900 dark:text-white">
                             {formatINR(price)}
                           </div>
@@ -2051,48 +2275,50 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Quantity Stepper */}
-                        <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800">
+                        <div className="flex items-center gap-2">
+                          {/* Quantity Stepper */}
+                          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => setInventoryQtyMap(prev => ({
+                                ...prev,
+                                [product.id]: Math.max(1, (prev[product.id] || 1) - 1)
+                              }))}
+                              className="px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              value={chosenQty}
+                              onChange={e => setInventoryQtyMap(prev => ({
+                                ...prev,
+                                [product.id]: Math.max(1, Number(e.target.value) || 1)
+                              }))}
+                              className="w-12 text-center text-xs font-bold bg-transparent border-0 focus:ring-0 p-0 text-slate-900 dark:text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setInventoryQtyMap(prev => ({
+                                ...prev,
+                                [product.id]: (prev[product.id] || 1) + 1
+                              }))}
+                              className="px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => setInventoryQtyMap(prev => ({
-                              ...prev,
-                              [product.id]: Math.max(1, (prev[product.id] || 1) - 1)
-                            }))}
-                            className="px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold"
+                            onClick={() => handleAddProductFromInventory(product, chosenQty)}
+                            className="px-3.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
                           >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            min={1}
-                            value={chosenQty}
-                            onChange={e => setInventoryQtyMap(prev => ({
-                              ...prev,
-                              [product.id]: Math.max(1, Number(e.target.value) || 1)
-                            }))}
-                            className="w-12 text-center text-xs font-bold bg-transparent border-0 focus:ring-0 p-0 text-slate-900 dark:text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setInventoryQtyMap(prev => ({
-                              ...prev,
-                              [product.id]: (prev[product.id] || 1) + 1
-                            }))}
-                            className="px-2 py-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold"
-                          >
-                            +
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
                           </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleAddProductFromInventory(product, chosenQty)}
-                          className="px-3.5 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add</span>
-                        </button>
                       </div>
                     </div>
                   );

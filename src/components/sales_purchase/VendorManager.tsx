@@ -55,12 +55,15 @@ export const VendorManager: React.FC = () => {
   ];
 
   const filteredVendors = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+
     return vendors.filter(v => {
       const matchesSearch =
-        v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.vendorCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.city.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        (v.name || '').toLowerCase().includes(q) ||
+        (v.vendorCode || '').toLowerCase().includes(q) ||
+        (v.contactPerson || '').toLowerCase().includes(q) ||
+        (v.city || '').toLowerCase().includes(q);
       const matchesCategory = categoryFilter === 'ALL' || v.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });

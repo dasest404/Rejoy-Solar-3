@@ -30,16 +30,21 @@ export const ProjectsView: React.FC = () => {
   const projects = useMemo(() => storageService.getProjects(), [refreshTrigger]);
 
   const filteredProjects = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase().trim();
+    const stageTerm = (activeStageFilter || '').toLowerCase().trim();
+
     return projects.filter(p => {
       const matchesSearch =
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.projectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.location.toLowerCase().includes(searchTerm.toLowerCase());
+        !term ||
+        (p.title || '').toLowerCase().includes(term) ||
+        (p.projectCode || '').toLowerCase().includes(term) ||
+        (p.customerName || '').toLowerCase().includes(term) ||
+        (p.location || '').toLowerCase().includes(term);
 
       const matchesStage =
+        !activeStageFilter ||
         activeStageFilter === 'ALL' ||
-        p.currentStageKey.toLowerCase().includes(activeStageFilter.toLowerCase());
+        (p.currentStageKey || '').toLowerCase().includes(stageTerm);
 
       return matchesSearch && matchesStage;
     });

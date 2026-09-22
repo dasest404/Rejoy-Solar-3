@@ -44,29 +44,49 @@ export const GlobalSearchModal: React.FC = () => {
     if (!searchTerm.trim()) {
       return null;
     }
-    const q = searchTerm.toLowerCase();
+    const q = (searchTerm || '').toLowerCase().trim();
 
     return {
       customers: customers.filter(
-        c => c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.city.toLowerCase().includes(q)
+        c =>
+          (c.name || '').toLowerCase().includes(q) ||
+          (c.phone || '').includes(q) ||
+          (c.city || '').toLowerCase().includes(q)
       ),
       projects: projects.filter(
-        p => p.projectCode.toLowerCase().includes(q) || p.title.toLowerCase().includes(q) || p.customerName.toLowerCase().includes(q)
+        p =>
+          (p.projectCode || '').toLowerCase().includes(q) ||
+          (p.title || '').toLowerCase().includes(q) ||
+          (p.customerName || '').toLowerCase().includes(q)
       ),
       leads: leads.filter(
-        l => l.customerName.toLowerCase().includes(q) || l.phone.includes(q) || l.notes.toLowerCase().includes(q)
+        l =>
+          (l.customerName || '').toLowerCase().includes(q) ||
+          (l.phone || '').includes(q) ||
+          (l.notes || '').toLowerCase().includes(q)
       ),
       quotations: quotations.filter(
-        qt => qt.quotationNumber.toLowerCase().includes(q) || qt.customerName.toLowerCase().includes(q)
+        qt =>
+          (qt.quotationNumber || '').toLowerCase().includes(q) ||
+          (qt.customerName || '').toLowerCase().includes(q)
       ),
       payments: payments.filter(
-        py => py.receiptNumber.toLowerCase().includes(q) || py.customerName.toLowerCase().includes(q) || (py.transactionReference && py.transactionReference.toLowerCase().includes(q))
+        py =>
+          (py.receiptNumber || '').toLowerCase().includes(q) ||
+          (py.customerName || '').toLowerCase().includes(q) ||
+          ((py.transactionReference || '').toLowerCase().includes(q))
       ),
       employees: employees.filter(
-        e => e.name.toLowerCase().includes(q) || e.employeeCode.toLowerCase().includes(q) || e.department.toLowerCase().includes(q)
+        e =>
+          (e.name || '').toLowerCase().includes(q) ||
+          (e.employeeCode || '').toLowerCase().includes(q) ||
+          (e.department || '').toLowerCase().includes(q)
       ),
       serviceTickets: serviceTickets.filter(
-        s => s.ticketId.toLowerCase().includes(q) || s.customerName.toLowerCase().includes(q) || s.issue.toLowerCase().includes(q)
+        s =>
+          (s.ticketId || '').toLowerCase().includes(q) ||
+          (s.customerName || '').toLowerCase().includes(q) ||
+          (s.issue || '').toLowerCase().includes(q)
       )
     };
   }, [searchTerm, customers, projects, leads, quotations, payments, employees, serviceTickets]);
