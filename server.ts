@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
@@ -256,6 +257,22 @@ async function startServer() {
       appType: 'spa'
     });
     app.use(vite.middlewares);
+    // Explicit SPA fallback for development routes like /projects, /hrms, /finance
+    app.use('*', async (req, res, next) => {
+      if (req.method !== 'GET' || req.originalUrl.startsWith('/api')) {
+        return next();
+      }
+      try {
+        const url = req.originalUrl;
+        const indexHtmlPath = path.resolve(process.cwd(), 'index.html');
+        let template = await fs.promises.readFile(indexHtmlPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

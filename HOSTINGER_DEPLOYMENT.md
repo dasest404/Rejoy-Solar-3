@@ -25,16 +25,16 @@ This generates the optimized `dist/` folder containing:
 ```
 dist/
 ├── index.html
-├── .htaccess
+├── .htaccess            <-- Pre-configured Apache SPA rewrite rules automatically copied from public/.htaccess
 ├── assets/
 │   ├── index-*.js
 │   ├── index-*.css
 │   └── vendor-*.js
 └── api/
-    ├── gemini.php
-    ├── status.php
-    ├── db.php
-    └── schema.sql
+    ├── gemini.php       <-- Server-side Gemini AI proxy
+    ├── status.php       <-- Hostinger system health check
+    ├── db.php           <-- MySQL connectivity check
+    └── schema.sql       <-- MySQL database schema
 ```
 
 ### Step 2: Upload Files to Hostinger `public_html`
@@ -42,7 +42,7 @@ dist/
 2. Navigate to **Websites** → select your domain → **File Manager** (or connect via FileZilla SFTP/FTP).
 3. Open the **`public_html`** directory (or your target subdomain directory).
 4. Upload all files and folders **from inside the `dist/` directory** directly into `public_html/`.
-   - Ensure the hidden file **`.htaccess`** is uploaded (enable "Show hidden files" in File Manager settings if you don't see it).
+   - **Crucial:** Ensure the hidden file **`.htaccess`** is uploaded (enable "Show hidden files" in Hostinger File Manager settings). The `.htaccess` file prevents 404 errors on deep-link page refreshes (`/dashboard`, `/leads`, `/customers`, `/projects`, `/finance`, `/hrms`, `/settings`, etc.).
 
 ### Step 3: Configure Firebase Authentication & Environment Variables
 The Solar ERP uses **Firebase Web SDK** for secure client-side authentication:

@@ -76,90 +76,181 @@ interface AppContextType {
   triggerRefresh: () => void;
 }
 
+const getNormalizedPath = (pathname: string): string => {
+  let p = pathname.toLowerCase();
+  // Strip import.meta.env.BASE_URL if set (e.g. /erp/)
+  const baseUrl = (import.meta.env.BASE_URL || '/').toLowerCase().replace(/\/+$/, '');
+  if (baseUrl && baseUrl !== '/' && p.startsWith(baseUrl)) {
+    p = p.slice(baseUrl.length) || '/';
+  }
+  return p.replace(/\/+$/, '') || '/';
+};
+
 const getInitialViewFromPath = (): { view: AppView; filterKey: string | null; settingsTab?: SettingsTab } => {
   if (typeof window === 'undefined') {
     return { view: 'dashboard', filterKey: null, settingsTab: 'general' };
   }
-  const path = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
-  switch (path) {
-    case '/customers':
-      return { view: 'crm_customers', filterKey: null };
-    case '/crm':
-    case '/leads':
-      return { view: 'crm_leads', filterKey: null };
-    case '/quotations':
-      return { view: 'crm_quotations', filterKey: null };
-    case '/projects':
-      return { view: 'projects_all', filterKey: null };
-    case '/site-visits':
-      return { view: 'projects_stage_filtered', filterKey: 'site_survey' };
-    case '/installations':
-      return { view: 'projects_stage_filtered', filterKey: 'module_mounting' };
-    case '/services':
-    case '/service':
-      return { view: 'service', filterKey: null };
-    case '/reports':
-      return { view: 'reports', filterKey: null };
-    case '/settings/acl':
-    case '/acl':
-    case '/roles':
-      return { view: 'settings', filterKey: null, settingsTab: 'acl' };
-    case '/settings/tally':
-      return { view: 'settings', filterKey: null, settingsTab: 'tally' };
-    case '/settings/whatsapp':
-      return { view: 'settings', filterKey: null, settingsTab: 'whatsapp' };
-    case '/settings':
-      return { view: 'settings', filterKey: null, settingsTab: 'general' };
-    case '/finance':
-      return { view: 'finance', filterKey: null };
-    case '/hrms':
-      return { view: 'hrms', filterKey: null };
-    case '/customer-portal':
-    case '/portal':
-      return { view: 'customer_portal', filterKey: null };
-    case '/control-center':
-    case '/customer-control-center':
-      return { view: 'customer_control_center', filterKey: null };
-    case '/':
-    case '/dashboard':
-    default:
-      return { view: 'dashboard', filterKey: null };
+  const path = getNormalizedPath(window.location.pathname);
+
+  // Settings sub-routes
+  if (path === '/settings/acl' || path.endsWith('/settings/acl') || path === '/acl' || path === '/roles') {
+    return { view: 'settings', filterKey: null, settingsTab: 'acl' };
   }
+  if (path === '/settings/tally' || path.endsWith('/settings/tally')) {
+    return { view: 'settings', filterKey: null, settingsTab: 'tally' };
+  }
+  if (path === '/settings/whatsapp' || path.endsWith('/settings/whatsapp')) {
+    return { view: 'settings', filterKey: null, settingsTab: 'whatsapp' };
+  }
+  if (path === '/settings/general' || path.endsWith('/settings/general') || path === '/settings' || path.endsWith('/settings')) {
+    return { view: 'settings', filterKey: null, settingsTab: 'general' };
+  }
+
+  // Core ERP & CRM Modules
+  if (path === '/customers' || path.endsWith('/customers')) {
+    return { view: 'crm_customers', filterKey: null };
+  }
+  if (path === '/crm' || path === '/leads' || path.endsWith('/leads')) {
+    return { view: 'crm_leads', filterKey: null };
+  }
+  if (path === '/quotations' || path.endsWith('/quotations')) {
+    return { view: 'crm_quotations', filterKey: null };
+  }
+  if (path === '/projects' || path.endsWith('/projects')) {
+    return { view: 'projects_all', filterKey: null };
+  }
+  if (path === '/site-visits' || path.endsWith('/site-visits') || path === '/surveys') {
+    return { view: 'projects_stage_filtered', filterKey: 'site_survey' };
+  }
+  if (path === '/installations' || path.endsWith('/installations')) {
+    return { view: 'projects_stage_filtered', filterKey: 'module_mounting' };
+  }
+  if (path === '/services' || path === '/service' || path.endsWith('/services') || path.endsWith('/service')) {
+    return { view: 'service', filterKey: null };
+  }
+  if (path === '/reports' || path.endsWith('/reports')) {
+    return { view: 'reports', filterKey: null };
+  }
+  if (path === '/finance' || path.endsWith('/finance') || path === '/accounts') {
+    return { view: 'finance', filterKey: null };
+  }
+  if (path === '/hrms' || path === '/hrm' || path.endsWith('/hrms') || path === '/employees') {
+    return { view: 'hrms', filterKey: null };
+  }
+  if (path === '/customer-portal' || path === '/portal' || path.endsWith('/customer-portal') || path.endsWith('/portal')) {
+    return { view: 'customer_portal', filterKey: null };
+  }
+  if (path === '/control-center' || path === '/customer-control-center' || path.endsWith('/control-center')) {
+    return { view: 'customer_control_center', filterKey: null };
+  }
+
+  // Sales, Purchase & Inventory Modules
+  if (path === '/sales' || path === '/sales-purchase' || path.endsWith('/sales-purchase')) {
+    return { view: 'sales_purchase', filterKey: null };
+  }
+  if (path === '/bom' || path.endsWith('/bom')) {
+    return { view: 'sales_bom', filterKey: null };
+  }
+  if (path === '/invoices' || path.endsWith('/invoices')) {
+    return { view: 'sales_invoices', filterKey: null };
+  }
+  if (path === '/vendors' || path.endsWith('/vendors')) {
+    return { view: 'purchase_vendors', filterKey: null };
+  }
+  if (path === '/purchase-orders' || path.endsWith('/purchase-orders')) {
+    return { view: 'purchase_orders', filterKey: null };
+  }
+  if (path === '/products' || path.endsWith('/products')) {
+    return { view: 'inventory_products', filterKey: null };
+  }
+  if (path === '/inventory' || path === '/stock' || path.endsWith('/inventory')) {
+    return { view: 'inventory_stock', filterKey: null };
+  }
+
+  // Dashboard / Root
+  if (path === '/' || path === '/dashboard' || path.endsWith('/dashboard')) {
+    return { view: 'dashboard', filterKey: null };
+  }
+
+  return { view: 'dashboard', filterKey: null };
 };
 
-const getPathForView = (view: AppView, filterKey?: string | null): string => {
+const getPathForView = (view: AppView, filterKey?: string | null, settingsTab?: SettingsTab): string => {
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+  let route = '/dashboard';
+
   switch (view) {
     case 'dashboard':
-      return '/dashboard';
+      route = '/dashboard';
+      break;
     case 'crm_leads':
-      return '/leads';
+      route = '/leads';
+      break;
     case 'crm_customers':
-      return '/customers';
+      route = '/customers';
+      break;
     case 'crm_quotations':
-      return '/quotations';
+      route = '/quotations';
+      break;
     case 'projects_all':
-      return '/projects';
+      route = '/projects';
+      break;
     case 'projects_stage_filtered':
-      if (filterKey === 'site_survey') return '/site-visits';
-      if (filterKey === 'module_mounting') return '/installations';
-      return '/projects';
+      if (filterKey === 'site_survey') route = '/site-visits';
+      else if (filterKey === 'module_mounting') route = '/installations';
+      else route = '/projects';
+      break;
     case 'customer_control_center':
-      return '/control-center';
+      route = '/control-center';
+      break;
     case 'finance':
-      return '/finance';
+      route = '/finance';
+      break;
     case 'hrms':
-      return '/hrms';
+      route = '/hrms';
+      break;
     case 'service':
-      return '/services';
+      route = '/services';
+      break;
     case 'reports':
-      return '/reports';
+      route = '/reports';
+      break;
     case 'settings':
-      return '/settings';
+      if (settingsTab && settingsTab !== 'general') {
+        route = `/settings/${settingsTab}`;
+      } else {
+        route = '/settings';
+      }
+      break;
     case 'customer_portal':
-      return '/customer-portal';
+      route = '/customer-portal';
+      break;
+    case 'sales_purchase':
+      route = '/sales-purchase';
+      break;
+    case 'sales_bom':
+      route = '/bom';
+      break;
+    case 'sales_invoices':
+      route = '/invoices';
+      break;
+    case 'purchase_vendors':
+      route = '/vendors';
+      break;
+    case 'purchase_orders':
+      route = '/purchase-orders';
+      break;
+    case 'inventory_products':
+      route = '/products';
+      break;
+    case 'inventory_stock':
+      route = '/inventory';
+      break;
     default:
-      return '/dashboard';
+      route = '/dashboard';
   }
+
+  return base ? `${base}${route}` : route;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -169,22 +260,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeView, setActiveViewState] = useState<AppView>(initialRoute.view);
   const [stageFilterKey, setStageFilterKeyInternal] = useState<string | null>(initialRoute.filterKey);
   const [activeReportCategory, setActiveReportCategory] = useState<ReportCategory>('sales');
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(initialRoute.settingsTab || 'general');
+  const [activeSettingsTab, setActiveSettingsTabState] = useState<SettingsTab>(initialRoute.settingsTab || 'general');
 
   const openReport = (category: ReportCategory) => {
     setActiveReportCategory(category);
     setActiveView('reports');
   };
 
+  const setActiveSettingsTab = (tab: SettingsTab) => {
+    setActiveSettingsTabState(tab);
+    if (typeof window !== 'undefined' && activeView === 'settings') {
+      const targetPath = getPathForView('settings', null, tab);
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ view: 'settings', tab }, '', targetPath);
+      }
+    }
+  };
+
   const openSettingsTab = (tab: SettingsTab) => {
-    setActiveSettingsTab(tab);
-    setActiveView('settings');
+    setActiveSettingsTabState(tab);
+    setActiveViewState('settings');
+    if (typeof window !== 'undefined') {
+      const targetPath = getPathForView('settings', null, tab);
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ view: 'settings', tab }, '', targetPath);
+      }
+    }
   };
 
   const setActiveView = (view: AppView) => {
     setActiveViewState(view);
     if (typeof window !== 'undefined') {
-      const targetPath = getPathForView(view, stageFilterKey);
+      const targetPath = getPathForView(view, stageFilterKey, activeSettingsTab);
       if (window.location.pathname !== targetPath) {
         window.history.pushState({ view }, '', targetPath);
       }
@@ -207,6 +314,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const current = getInitialViewFromPath();
       setActiveViewState(current.view);
       setStageFilterKeyInternal(current.filterKey);
+      if (current.settingsTab) {
+        setActiveSettingsTabState(current.settingsTab);
+      }
     };
 
     window.addEventListener('popstate', handlePopState);
