@@ -20,7 +20,8 @@ import {
   ShieldAlert,
   ArrowRight,
   ShoppingCart,
-  ShieldCheck
+  ShieldCheck,
+  Navigation
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -294,6 +295,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                   </div>
                 )}
               </div>
+
+              {/* Field Workforce Live Tracking */}
+              {canAccessModule('live_tracking') && (
+                <div className="space-y-1">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>Field Dispatch</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  </div>
+                  <button
+                    onClick={() => navigateTo('live_tracking')}
+                    className={navItemClass(activeView === 'live_tracking')}
+                  >
+                    <Navigation className="w-4 h-4 text-amber-500" />
+                    <span className="flex-1 text-left">Live Field Tracking</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      LIVE
+                    </span>
+                  </button>
+                </div>
+              )}
 
               {/* Accounting & Finance */}
               {canAccessModule('finance') && (

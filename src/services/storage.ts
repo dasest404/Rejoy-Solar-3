@@ -317,6 +317,42 @@ const initialEmployees: Employee[] = [
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-08-12T10:00:00Z',
     accountCreatedBy: 'System Init'
+  },
+  {
+    id: 'emp-12',
+    employeeCode: 'EMP012',
+    name: 'Ketan Solanki',
+    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150',
+    department: 'Service',
+    designation: 'Field Service Technician',
+    phone: '+91 98261 22334',
+    email: 'ketan.solanki@solarpulse.com',
+    joiningDate: '2023-01-10',
+    salaryMonthly: 38000,
+    status: 'IN FIELD',
+    loginEnabled: true,
+    systemRole: 'Technician',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2023-01-10T10:00:00Z',
+    accountCreatedBy: 'System Init'
+  },
+  {
+    id: 'emp-13',
+    employeeCode: 'EMP013',
+    name: 'Hardik Shah',
+    photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150',
+    department: 'Engineering',
+    designation: 'Senior Site Inspector & Quality Auditor',
+    phone: '+91 98262 33445',
+    email: 'hardik.shah@solarpulse.com',
+    joiningDate: '2022-04-18',
+    salaryMonthly: 55000,
+    status: 'IN FIELD',
+    loginEnabled: true,
+    systemRole: 'Site Survey Engineer',
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-04-18T10:00:00Z',
+    accountCreatedBy: 'System Init'
   }
 ];
 

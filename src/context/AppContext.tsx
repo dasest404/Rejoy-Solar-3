@@ -8,6 +8,7 @@ export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl';
 
 export type AppView =
   | 'dashboard'
+  | 'live_tracking'
   | 'crm_leads'
   | 'crm_customers'
   | 'crm_quotations'
@@ -107,6 +108,9 @@ const getInitialViewFromPath = (): { view: AppView; filterKey: string | null; se
   }
 
   // Core ERP & CRM Modules
+  if (path === '/live-tracking' || path === '/field-tracking' || path.endsWith('/live-tracking') || path.endsWith('/field-tracking')) {
+    return { view: 'live_tracking', filterKey: null };
+  }
   if (path === '/customers' || path.endsWith('/customers')) {
     return { view: 'crm_customers', filterKey: null };
   }
@@ -182,6 +186,9 @@ const getPathForView = (view: AppView, filterKey?: string | null, settingsTab?: 
   switch (view) {
     case 'dashboard':
       route = '/dashboard';
+      break;
+    case 'live_tracking':
+      route = '/live-tracking';
       break;
     case 'crm_leads':
       route = '/leads';

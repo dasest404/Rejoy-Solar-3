@@ -24,6 +24,7 @@ const ReportsView = React.lazy(() => import('./components/views/ReportsView').th
 const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
 const CustomerPortalView = React.lazy(() => import('./components/views/CustomerPortalView').then(m => ({ default: m.CustomerPortalView })));
 const SalesPurchaseView = React.lazy(() => import('./components/views/SalesPurchaseView').then(m => ({ default: m.SalesPurchaseView })));
+const LiveFieldTrackingView = React.lazy(() => import('./components/views/LiveFieldTrackingView').then(m => ({ default: m.LiveFieldTrackingView })));
 
 const ViewLoader: React.FC = () => (
   <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 gap-3">
@@ -46,6 +47,8 @@ const MainLayout: React.FC = () => {
     switch (activeView) {
       case 'dashboard':
         return <DashboardView />;
+      case 'live_tracking':
+        return <LiveFieldTrackingView />;
       case 'customer_control_center':
         return <CustomerControlCenterView />;
       case 'crm_leads':

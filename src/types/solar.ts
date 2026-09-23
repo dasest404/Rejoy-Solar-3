@@ -253,6 +253,9 @@ export interface SolarProject {
   siteAddress: string;
   city: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
+  systemType?: string;
   inverterModel?: string;
   panelModel?: string;
   structureType?: string;

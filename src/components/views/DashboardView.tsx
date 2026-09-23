@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
+import { liveLocationService } from '../../services/liveLocationService';
+import { LiveEmployeeLocation } from '../../types/tracking';
 import {
   SunMedium,
   Zap,
@@ -16,7 +18,8 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Calendar,
-  Sparkles
+  Sparkles,
+  Navigation
 } from 'lucide-react';
 import {
   BarChart,
@@ -54,6 +57,27 @@ export const DashboardView: React.FC = () => {
 
   const activeLeadsCount = leads.filter(l => !['WON', 'LOST'].includes(l.status)).length;
   const openTicketsCount = serviceTickets.filter(s => s.status !== 'RESOLVED').length;
+
+  // Live Field Workforce tracking statistics (live subscription)
+  const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>(() =>
+    liveLocationService.getLocations()
+  );
+
+  useEffect(() => {
+    const unsub = liveLocationService.subscribe((locs) => {
+      setLiveLocations(locs);
+    });
+    return () => unsub();
+  }, []);
+
+  const liveStats = useMemo(() => {
+    const online = liveLocations.filter(
+      (l) => l.hasLocation && (l.status === 'online' || l.status === 'moving')
+    ).length;
+    const moving = liveLocations.filter((l) => l.hasLocation && l.status === 'moving').length;
+    const idle = liveLocations.filter((l) => l.hasLocation && l.status === 'idle').length;
+    return { online, moving, idle, total: liveLocations.length };
+  }, [liveLocations]);
 
   // Pipeline stage breakdown
   const stageDistribution = useMemo(() => {
@@ -143,7 +167,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Primary KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Total Capacity */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden">
           <div className="flex items-center justify-between">
@@ -217,6 +241,43 @@ export const DashboardView: React.FC = () => {
             <p className="text-[11px] text-slate-500 mt-1">
               High commercial conversion rate
             </p>
+          </div>
+        </div>
+
+        {/* Live Field Workforce Card */}
+        <div
+          onClick={() => setActiveView('live_tracking')}
+          className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs relative overflow-hidden group cursor-pointer hover:border-amber-400 hover:shadow-xs transition-all flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Live Field Workforce
+              </span>
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
+                <Navigation className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="mt-2.5 space-y-1 text-xs">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>{liveStats.online} Online</span>
+              </div>
+              <div className="flex items-center gap-1.5 font-bold text-emerald-700">
+                <span className="text-[11px]">🚗</span>
+                <span>{liveStats.moving} Moving</span>
+              </div>
+              <div className="flex items-center gap-1.5 font-bold text-amber-700">
+                <span className="text-[11px]">🟡</span>
+                <span>{liveStats.idle} Idle</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
+            <span>View Live Tracking</span>
+            <span className="transition-transform group-hover:translate-x-1">→</span>
           </div>
         </div>
       </div>

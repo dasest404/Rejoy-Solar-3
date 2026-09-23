@@ -456,6 +456,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     switch (moduleName) {
       case 'dashboard':
         return true;
+      case 'live_tracking':
+      case 'field_tracking':
+        return isSuperAdmin || isProjectManager || currentRole === 'Service Manager' || hasPermission('projects.view');
       case 'crm':
       case 'leads':
         return hasPermission('crm.leads.view') || ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);

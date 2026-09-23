@@ -5,9 +5,41 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getAuth, UpdateRequest } from 'firebase-admin/auth';
+import Pusher from 'pusher';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+// Pusher Server-side instance
+let pusherServer: Pusher | null = null;
+let pusherChecked = false;
+
+function getPusherServer(): Pusher | null {
+  if (pusherChecked) return pusherServer;
+  pusherChecked = true;
+
+  const appId = process.env.PUSHER_APP_ID || process.env.VITE_PUSHER_APP_ID;
+  const key = process.env.PUSHER_APP_KEY || process.env.VITE_PUSHER_APP_KEY;
+  const secret = process.env.PUSHER_APP_SECRET;
+  const cluster = process.env.PUSHER_APP_CLUSTER || process.env.VITE_PUSHER_APP_CLUSTER || 'mt1';
+
+  if (appId && key && secret) {
+    try {
+      pusherServer = new Pusher({
+        appId,
+        key,
+        secret,
+        cluster,
+        useTLS: true
+      });
+      console.log(`[Pusher] Initialized server broadcast on cluster '${cluster}'`);
+      return pusherServer;
+    } catch (err) {
+      console.warn('[Pusher] Failed to initialize Pusher server:', err);
+    }
+  }
+  return null;
+}
 
 // Firebase Admin SDK safe initialization
 let firebaseAdminApp: App | null = null;
@@ -81,6 +113,79 @@ async function startServer() {
       status: 'STANDBY',
       message: 'The ERP is operating in high-performance local persistence mode with full export/import/restore capabilities.'
     });
+  });
+
+  // Pusher Public Client Configuration
+  app.get('/api/pusher/config', (_req, res) => {
+    const key = process.env.VITE_PUSHER_APP_KEY || process.env.PUSHER_APP_KEY || '';
+    const cluster = process.env.VITE_PUSHER_APP_CLUSTER || process.env.PUSHER_APP_CLUSTER || 'mt1';
+    res.json({
+      configured: Boolean(key),
+      key,
+      cluster,
+      channel: 'my-channel',
+      event: 'location.updated'
+    });
+  });
+
+  // Realtime Live Location Update Endpoint (Field Worker GPS -> Backend -> Pusher event 'location.updated')
+  app.post(['/api/update-location', '/api/location/update', '/api/location'], async (req, res) => {
+    try {
+      const {
+        userId,
+        latitude,
+        longitude,
+        accuracy,
+        heading,
+        speed,
+        timestamp,
+        activity,
+        batteryLevel
+      } = req.body || {};
+
+      if (!userId || typeof latitude !== 'number' || typeof longitude !== 'number') {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required location fields: userId, latitude, longitude.'
+        });
+        return;
+      }
+
+      const payload = {
+        userId: String(userId),
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        accuracy: accuracy !== undefined ? Number(accuracy) : undefined,
+        heading: heading !== undefined ? Number(heading) : undefined,
+        speed: speed !== undefined ? Number(speed) : undefined,
+        timestamp: timestamp || new Date().toISOString(),
+        activity: activity ? String(activity) : undefined,
+        batteryLevel: batteryLevel !== undefined ? Number(batteryLevel) : undefined
+      };
+
+      const pusher = getPusherServer();
+      let broadcasted = false;
+      if (pusher) {
+        try {
+          await pusher.trigger('my-channel', 'location.updated', payload);
+          broadcasted = true;
+        } catch (err: any) {
+          console.warn('[Pusher] Trigger error:', err?.message || err);
+        }
+      }
+
+      res.json({
+        success: true,
+        broadcasted,
+        payload
+      });
+    } catch (err: any) {
+      console.error('[Location Update] Error:', err);
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Error processing location update'
+      });
+    }
   });
 
   // Gemini Generative Language Proxy Endpoint
