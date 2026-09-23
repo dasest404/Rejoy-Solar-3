@@ -1,14 +1,14 @@
 export type UserRole =
-  | 'Super Admin'
   | 'Admin'
   | 'Sales Manager'
   | 'Sales Executive'
+  | 'Project Manager'
   | 'Site Survey Engineer'
+  | 'Site Inspector'
   | 'Civil Team'
   | 'Structure Team'
   | 'Installation Team'
   | 'Electrical Team'
-  | 'Project Manager'
   | 'Accountant'
   | 'HR Manager'
   | 'Service Manager'
@@ -24,6 +24,9 @@ export interface UserProfile {
   avatar?: string;
   department?: string;
   designation?: string;
+  employeeId?: string;
+  active?: boolean;
+  isFieldWorker?: boolean;
   customerId?: string; // If customer role
   assignedProjects?: string[];
 }
@@ -457,6 +460,7 @@ export interface Employee {
   loginEnabled: boolean;
   authUid?: string;
   systemRole?: UserRole;
+  isFieldWorker?: boolean;
   accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED';
   accountCreatedAt?: string;
   accountCreatedBy?: string;

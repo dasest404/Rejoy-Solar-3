@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
     activeSettingsTab,
     openSettingsTab
   } = useApp();
-  const { currentUser, isCustomer, canAccessModule } = useAuth();
+  const { currentUser, isCustomer, isAdmin, isFieldStaff, canAccessModule, currentRole } = useAuth();
 
   const [crmOpen, setCrmOpen] = useState(true);
   const [salesPurchaseOpen, setSalesPurchaseOpen] = useState(true);
@@ -136,13 +136,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                 </button>
 
                 {/* Heart of the System: Customer Control Center */}
-                <button
-                  onClick={() => navigateTo('customer_control_center')}
-                  className={navItemClass(activeView === 'customer_control_center')}
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Control Center</span>
-                </button>
+                {(isAdmin || currentRole === 'Project Manager' || currentRole === 'Service Manager') && (
+                  <button
+                    onClick={() => navigateTo('customer_control_center')}
+                    className={navItemClass(activeView === 'customer_control_center')}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Control Center</span>
+                  </button>
+                )}
               </div>
 
               {/* CRM Section */}
@@ -269,32 +271,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               )}
 
               {/* Projects & Workflows Section */}
-              <div className="space-y-1">
-                <div
-                  onClick={() => setProjectsOpen(!projectsOpen)}
-                  className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
-                >
-                  <span>Project Operations</span>
-                  {projectsOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-                </div>
-
-                {projectsOpen && (
-                  <div className="space-y-0.5">
-                    <button
-                      onClick={() => navigateTo('projects_all')}
-                      className={subNavItemClass(activeView === 'projects_all')}
-                    >
-                      <span>All Projects</span>
-                    </button>
-                    <button
-                      onClick={() => navigateTo('projects_stage_filtered', 'site_survey')}
-                      className={subNavItemClass(activeView === 'projects_stage_filtered')}
-                    >
-                      <span>Stage Workflows</span>
-                    </button>
+              {canAccessModule('projects') && (
+                <div className="space-y-1">
+                  <div
+                    onClick={() => setProjectsOpen(!projectsOpen)}
+                    className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
+                  >
+                    <span>{isFieldStaff ? 'My Field Tasks' : 'Project Operations'}</span>
+                    {projectsOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
                   </div>
-                )}
-              </div>
+
+                  {projectsOpen && (
+                    <div className="space-y-0.5">
+                      <button
+                        onClick={() => navigateTo('projects_all')}
+                        className={subNavItemClass(activeView === 'projects_all')}
+                      >
+                        <span>{isFieldStaff ? 'Assigned Projects' : 'All Projects'}</span>
+                      </button>
+                      <button
+                        onClick={() => navigateTo('projects_stage_filtered', 'site_survey')}
+                        className={subNavItemClass(activeView === 'projects_stage_filtered')}
+                      >
+                        <span>{isFieldStaff ? 'Site Checklists & Workflows' : 'Stage Workflows'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Field Workforce Live Tracking */}
               {canAccessModule('live_tracking') && (
@@ -566,10 +570,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                         className={subNavItemClass(activeView === 'settings' && activeSettingsTab === 'acl')}
                       >
                         <span>Role-Based Access Control</span>
-                        
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* User Management (Admin Only) */}
+              {isAdmin && (
+                <div className="space-y-1">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Administration
+                  </div>
+                  <button
+                    onClick={() => navigateTo('users')}
+                    className={navItemClass(activeView === 'users')}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>User Management</span>
+                  </button>
                 </div>
               )}
             </>

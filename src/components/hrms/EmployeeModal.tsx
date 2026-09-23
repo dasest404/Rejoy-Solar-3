@@ -55,10 +55,10 @@ const STATUSES: Employee['status'][] = [
 ];
 
 const SYSTEM_ROLES: { role: UserRole; description: string }[] = [
-  { role: 'Super Admin', description: 'Complete system access, financial approvals & administrative control' },
-  { role: 'Admin', description: 'Operational administrator with full module management' },
+  { role: 'Admin', description: 'Complete system access, user management, financial approvals & administrative control' },
   { role: 'Project Manager', description: 'Gantt schedules, milestone tracking, resource & stage execution' },
   { role: 'Site Survey Engineer', description: 'Site audits, solar radiance, roof load & shadow analysis' },
+  { role: 'Site Inspector', description: 'Site quality inspections, installation audits, safety compliance & stage sign-offs' },
   { role: 'Sales Manager', description: 'Pipeline analytics, commercial quoting & team targets' },
   { role: 'Sales Executive', description: 'Lead capture, site feasibility & customer proposals' },
   { role: 'Electrical Team', description: 'Single line diagrams, HT/LT panels, string cabling & inverters' },
@@ -74,9 +74,9 @@ const SYSTEM_ROLES: { role: UserRole; description: string }[] = [
 function getDefaultSystemRole(dept: string, desig: string): UserRole {
   const d = (dept || '').toLowerCase();
   const title = (desig || '').toLowerCase();
-  if (title.includes('super admin') || title.includes('director')) return 'Super Admin';
-  if (title.includes('admin')) return 'Admin';
-  if (d === 'management') return 'Super Admin';
+  if (title.includes('director') || title.includes('admin')) return 'Admin';
+  if (d === 'management' || d === 'administration') return 'Admin';
+  if (title.includes('inspector') || title.includes('quality') || title.includes('audit')) return 'Site Inspector';
   if (d === 'sales') {
     return title.includes('manager') ? 'Sales Manager' : 'Sales Executive';
   }

@@ -46,7 +46,7 @@ export interface SpecialistRoleOption {
 }
 
 // Strictly curated project specialists for Solar EPC projects.
-// Administrative and finance roles (Super Admin, Admin, Accountant, HR Manager, Customer) are strictly excluded.
+// Administrative and finance roles (Admin, Accountant, HR Manager, Customer) are strictly excluded.
 export const ROLE_OPTIONS: SpecialistRoleOption[] = [
   {
     role: 'Site Survey Engineer',
@@ -117,7 +117,6 @@ export const ROLE_OPTIONS: SpecialistRoleOption[] = [
 /**
  * Explicit exclusion validator:
  * The following employees/roles must not appear in the employee selection list:
- * - Super Admin
  * - Admin
  * - Accountant
  * - HR Manager
@@ -130,11 +129,10 @@ export const isExcludedFromProjectSpecialists = (emp: Employee): boolean => {
   const designation = (emp.designation || '').toLowerCase().trim();
   const department = (emp.department || '').toLowerCase().trim();
 
-  // 1. Explicitly Exclude: Super Admin
+  // 1. Explicitly Exclude: Executive & Management
   if (
-    designation.includes('super admin') ||
-    designation.includes('superadmin') ||
     designation.includes('managing director') ||
+    designation.includes('director') ||
     department === 'management'
   ) {
     return true;
@@ -230,7 +228,7 @@ export const ProjectAssignmentModal: React.FC<ProjectAssignmentModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Filter out all excluded employees: Super Admin, Admin, Accountant, HR Manager, Customer
+      // Filter out all excluded employees: Admin, Accountant, HR Manager, Customer
       const rawEmployees = storageService.getEmployees();
       const eligible = rawEmployees.filter(emp => !isExcludedFromProjectSpecialists(emp));
       setAllEligibleEmployees(eligible);
@@ -373,7 +371,7 @@ export const ProjectAssignmentModal: React.FC<ProjectAssignmentModalProps> = ({
 
     // Safety guard against excluded roles
     if (isExcludedFromProjectSpecialists(emp)) {
-      setError(`Cannot assign ${emp.name}. Administrative, HR, and Finance users (Super Admin, Admin, Accountant, HR Manager, Customer) cannot be assigned as project specialists.`);
+      setError(`Cannot assign ${emp.name}. Administrative, HR, and Finance users (Admin, Accountant, HR Manager, Customer) cannot be assigned as project specialists.`);
       return;
     }
 
@@ -525,7 +523,7 @@ export const ProjectAssignmentModal: React.FC<ProjectAssignmentModalProps> = ({
               <span className="font-bold text-slate-800 block">Eligible Solar EPC Specialists Only</span>
               <p className="text-[11px] text-slate-500 leading-snug">
                 Showing certified field engineers, technicians, and sales coordinators. Administrative and finance staff
-                (<span className="font-semibold text-slate-700">Super Admin, Admin, Accountant, HR Manager, Customer</span>)
+                (<span className="font-semibold text-slate-700">Admin, Accountant, HR Manager, Customer</span>)
                 are excluded from project specialist assignments.
               </p>
             </div>

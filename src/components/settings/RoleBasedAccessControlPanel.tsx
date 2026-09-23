@@ -154,8 +154,8 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
 
   // Toggle single permission for current selected role
   const handleTogglePermission = (permissionId: string) => {
-    if (selectedRole === 'Super Admin') {
-      showToast('Super Admin root authority is immutable to prevent security lockouts', 'info');
+    if (selectedRole === 'Admin') {
+      showToast('Admin root authority is immutable to prevent security lockouts', 'info');
       return;
     }
     setPendingRolePerms(prev => {
@@ -167,8 +167,8 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
 
   // Toggle permission directly from Matrix table
   const handleMatrixToggle = (role: UserRole, permissionId: string) => {
-    if (role === 'Super Admin') {
-      showToast('Super Admin root authority cannot be modified', 'info');
+    if (role === 'Admin') {
+      showToast('Admin root authority cannot be modified', 'info');
       return;
     }
     const currentVal = Boolean(aclConfig[role]?.[permissionId]);
@@ -200,8 +200,8 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
 
   // Bulk toggle for a domain in Configurator
   const handleBulkDomainToggle = (domain: string, grant: boolean) => {
-    if (selectedRole === 'Super Admin') {
-      showToast('Super Admin permissions are fixed as root authority', 'info');
+    if (selectedRole === 'Admin') {
+      showToast('Admin permissions are fixed as root authority', 'info');
       return;
     }
     const domainPerms = ACL_PERMISSIONS_CATALOG.filter(p => p.domain === domain);
@@ -264,7 +264,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
 
   // Copy permissions from another role
   const handleCopyFromRole = (sourceRole: UserRole) => {
-    if (selectedRole === 'Super Admin') return;
+    if (selectedRole === 'Admin') return;
     const sourcePerms = aclConfig[sourceRole] || DEFAULT_SYSTEM_ACL_CONFIG[sourceRole] || {};
     setPendingRolePerms({ ...sourcePerms });
     setHasPendingChanges(true);
@@ -333,13 +333,13 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
     reader.onload = event => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (typeof parsed === 'object' && parsed['Super Admin']) {
+        if (typeof parsed === 'object' && parsed['Admin']) {
           storageService.saveAclConfig(parsed);
           setAclConfig(parsed);
           setPendingRolePerms({ ...(parsed[selectedRole] || {}) });
           storageService.addAclAuditLog({
             changedBy: currentUser?.name || 'Administrator',
-            targetRole: 'Super Admin',
+            targetRole: 'Admin',
             action: 'IMPORT_CONFIG',
             summary: `Imported ACL policy configuration from file "${file.name}"`
           });
@@ -631,7 +631,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                     onChange={e => {
                       if (e.target.value) handleCopyFromRole(e.target.value as UserRole);
                     }}
-                    disabled={selectedRole === 'Super Admin'}
+                    disabled={selectedRole === 'Admin'}
                     className="text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <option value="" disabled>
@@ -648,7 +648,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleResetRole}
-                  disabled={selectedRole === 'Super Admin'}
+                  disabled={selectedRole === 'Admin'}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors shadow-2xs disabled:opacity-50"
                   title="Restore Solar EPC defaults for this role"
                 >
@@ -659,9 +659,9 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveRole}
-                  disabled={!hasPendingChanges || selectedRole === 'Super Admin'}
+                  disabled={!hasPendingChanges || selectedRole === 'Admin'}
                   className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-xl transition-all shadow-sm ${
-                    hasPendingChanges && selectedRole !== 'Super Admin'
+                    hasPendingChanges && selectedRole !== 'Admin'
                       ? 'bg-purple-600 text-white hover:bg-purple-700 animate-pulse'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   }`}
@@ -741,7 +741,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                     </div>
 
                     {/* Quick domain bulk toggle */}
-                    {selectedRole !== 'Super Admin' && (
+                    {selectedRole !== 'Admin' && (
                       <div className="flex items-center gap-2 self-start sm:self-auto">
                         <button
                           type="button"
@@ -765,7 +765,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                   <div className="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-2 gap-3.5">
                     {permsInDomain.map(perm => {
                       const isGranted = Boolean(pendingRolePerms[perm.id]);
-                      const isLocked = selectedRole === 'Super Admin';
+                      const isLocked = selectedRole === 'Admin';
 
                       return (
                         <div
@@ -839,7 +839,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
           </div>
 
           {/* Sticky Bottom Save Bar when changes exist */}
-          {hasPendingChanges && selectedRole !== 'Super Admin' && (
+          {hasPendingChanges && selectedRole !== 'Admin' && (
             <div className="sticky bottom-4 z-20 bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-800 flex items-center justify-between gap-4 animate-in slide-in-from-bottom-2">
               <div className="flex items-center gap-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
@@ -958,7 +958,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
 
                     {ACL_ROLES_METADATA.map(r => {
                       const isGranted = Boolean(aclConfig[r.role]?.[perm.id]);
-                      const isRoot = r.role === 'Super Admin';
+                      const isRoot = r.role === 'Admin';
 
                       return (
                         <td
@@ -973,7 +973,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                           }`}
                           title={
                             isRoot
-                              ? 'Super Admin (Root authority)'
+                              ? 'Admin (Root authority)'
                               : `Click to ${isGranted ? 'Revoke' : 'Grant'} for ${r.role}`
                           }
                         >
@@ -1149,7 +1149,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-purple-600" /> Stage Approval Dual-Control
                 </span>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Field engineers submit checklists and geolocated photos; only Project Managers and Super Admins can officially close stages.
+                  Field engineers submit checklists and geolocated photos; only Project Managers and Admins can officially close stages.
                 </p>
               </div>
 
@@ -1167,7 +1167,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-purple-600" /> Tally Prime Integrity
                 </span>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Direct XML voucher push over ODBC requires Finance Accountant or Super Admin credentials to ensure ledger compliance.
+                  Direct XML voucher push over ODBC requires Finance Accountant or Admin credentials to ensure ledger compliance.
                 </p>
               </div>
 
@@ -1176,7 +1176,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
                   <CheckCircle2 className="w-4 h-4 text-purple-600" /> Root Protection Policy
                 </span>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Super Admin role is cryptographically protected against permission revoking to prevent self-lockout scenarios.
+                  Admin role is protected against permission revoking to prevent self-lockout scenarios.
                 </p>
               </div>
             </div>

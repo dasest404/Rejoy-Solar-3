@@ -1,5 +1,5 @@
-import React, { useState, Suspense } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import React, { useState, Suspense, useEffect } from 'react';
+import { AuthProvider, useAuth, getRoleDefaultPath } from './context/AuthContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
@@ -25,6 +25,7 @@ const SettingsView = React.lazy(() => import('./components/views/SettingsView').
 const CustomerPortalView = React.lazy(() => import('./components/views/CustomerPortalView').then(m => ({ default: m.CustomerPortalView })));
 const SalesPurchaseView = React.lazy(() => import('./components/views/SalesPurchaseView').then(m => ({ default: m.SalesPurchaseView })));
 const LiveFieldTrackingView = React.lazy(() => import('./components/views/LiveFieldTrackingView').then(m => ({ default: m.LiveFieldTrackingView })));
+const UserManagementView = React.lazy(() => import('./components/users/UserManagementView').then(m => ({ default: m.UserManagementView })));
 
 const ViewLoader: React.FC = () => (
   <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 gap-3">
@@ -35,7 +36,7 @@ const ViewLoader: React.FC = () => (
 
 const MainLayout: React.FC = () => {
   const { activeView } = useApp();
-  const { isCustomer } = useAuth();
+  const { isCustomer, isAdmin, canAccessModule } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const renderActiveView = () => {
@@ -61,17 +62,24 @@ const MainLayout: React.FC = () => {
       case 'projects_stage_filtered':
         return <ProjectsView />;
       case 'finance':
+        if (!canAccessModule('finance')) return <DashboardView />;
         return <FinanceView />;
       case 'hrms':
+        if (!canAccessModule('hrms')) return <DashboardView />;
         return <HrmsView />;
       case 'service':
         return <ServiceView />;
       case 'reports':
+        if (!canAccessModule('reports')) return <DashboardView />;
         return <ReportsView />;
       case 'settings':
+        if (!isAdmin) return <DashboardView />;
         return <SettingsView />;
       case 'customer_portal':
         return <CustomerPortalView />;
+      case 'users':
+        if (!isAdmin) return <DashboardView />;
+        return <UserManagementView />;
       case 'sales_purchase':
       case 'sales_bom':
       case 'sales_invoices':
@@ -119,6 +127,23 @@ const MainLayout: React.FC = () => {
 const ProtectedApp: React.FC = () => {
   const { currentUser, isAuthenticated, loading } = useAuth();
 
+  // Route URL Synchronization & Protection
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const path = window.location.pathname.toLowerCase();
+
+    if (isAuthenticated && currentUser) {
+      if (path === '/login' || path.endsWith('/login')) {
+        const targetPath = getRoleDefaultPath(currentUser.role);
+        window.history.replaceState(null, '', targetPath);
+      }
+    } else if (!loading && !isAuthenticated) {
+      if (path !== '/login' && !path.endsWith('/login')) {
+        window.history.replaceState(null, '', '/login');
+      }
+    }
+  }, [isAuthenticated, currentUser, loading]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
@@ -128,7 +153,7 @@ const ProtectedApp: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-slate-400 font-medium tracking-wide">
-            Verifying Firebase session...
+            Verifying Rejoy Solar session...
           </p>
         </div>
       </div>

@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { useAuth, ROLE_DEFINITIONS } from '../../context/AuthContext';
-import { UserRole } from '../../types/solar';
+import { useAuth, DEMO_ACCOUNTS, DemoAccount } from '../../context/AuthContext';
 import {
   Sun,
   Lock,
   Mail,
-  User,
-  Shield,
   Eye,
   EyeOff,
   ArrowRight,
@@ -14,23 +11,27 @@ import {
   AlertCircle,
   CheckCircle2,
   HelpCircle,
-  X
+  X,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  UserCheck
 } from 'lucide-react';
 
 export const LoginView: React.FC = () => {
-  const { login, register, resetPassword, isFirebaseReady, loading } = useAuth();
+  const { login, resetPassword, isFirebaseReady, loading } = useAuth();
 
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('Super Admin');
   const [showPassword, setShowPassword] = useState(false);
 
   // States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Developer quick-login drawer
+  const [showDevAccounts, setShowDevAccounts] = useState(false);
 
   // Forgot password modal
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -43,38 +44,35 @@ export const LoginView: React.FC = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage('Please enter both email and password.');
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setErrorMessage('Please enter both your email address and password.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      if (mode === 'LOGIN') {
-        await login(email, password);
-      } else {
-        if (!fullName.trim()) {
-          setErrorMessage('Please enter your full name.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (password.length < 6) {
-          setErrorMessage('Password must be at least 6 characters.');
-          setIsSubmitting(false);
-          return;
-        }
-        const roleDef = ROLE_DEFINITIONS.find(r => r.role === selectedRole);
-        await register(
-          email,
-          password,
-          fullName,
-          selectedRole,
-          roleDef?.department,
-          selectedRole
-        );
-      }
+      await login(cleanEmail, cleanPassword);
+      // Upon successful authentication, AuthContext updates and App.tsx routes to role dashboard
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+      setErrorMessage(err.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSelectDemoAccount = async (account: DemoAccount) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setErrorMessage(null);
+
+    setIsSubmitting(true);
+    try {
+      await login(account.email, account.password);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed for demo account');
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +91,7 @@ export const LoginView: React.FC = () => {
       await resetPassword(resetEmail);
       setResetStatus({
         type: 'success',
-        message: 'Password reset link sent! Check your inbox or spam folder.'
+        message: 'Password reset link sent! Check your inbox or contact your administrator.'
       });
     } catch (err: any) {
       setResetStatus({
@@ -106,74 +104,30 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col justify-center items-center px-4 py-12 sm:px-6 lg:px-8 selection:bg-amber-500 selection:text-white relative overflow-hidden">
-      {/* Background Decorative Gradients */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 flex flex-col justify-center items-center px-4 py-8 sm:px-6 lg:px-8 selection:bg-amber-500 selection:text-white relative overflow-hidden">
+      {/* Background Decorative Ambient Lights */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white shadow-xl shadow-amber-500/20 mb-3.5">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 shadow-xl shadow-amber-500/20 mb-3.5">
             <Sun className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-            SolarPulse <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">EPC ERP</span>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
+            REJOY SOLAR
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 font-medium">
-            Turnkey Solar EPC & CRM Operations Platform
+          <p className="text-xs sm:text-sm text-amber-400/90 font-semibold tracking-wide mt-0.5">
+            Solar ERP & CRM Platform
+          </p>
+          <p className="text-xs text-slate-400 mt-1.5 font-medium">
+            Sign in to your account
           </p>
         </div>
 
-        {/* Auth Card */}
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/20 text-slate-900">
-          {/* Mode Switcher */}
-          <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('LOGIN');
-                setErrorMessage(null);
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                mode === 'LOGIN'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode('REGISTER');
-                setErrorMessage(null);
-              }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                mode === 'REGISTER'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Create Account
-            </button>
-          </div>
-
-          {/* Firebase Configuration Info Note */}
-          {!isFirebaseReady && (
-            <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900">
-              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-[11px] uppercase tracking-wider text-amber-800">
-                  Firebase Web SDK Integration
-                </p>
-                <p className="text-[11px] text-amber-700 mt-0.5 leading-snug">
-                  To authenticate against your live Firebase project, provide your credentials in <code className="font-mono bg-amber-100 px-1 py-0.5 rounded text-[10px]">.env</code> (<code className="font-mono text-[10px]">VITE_FIREBASE_API_KEY</code>). You can sign in immediately to test all ERP features.
-                </p>
-              </div>
-            </div>
-          )}
-
+        {/* Primary Auth Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-slate-900">
           {/* Error Message */}
           {errorMessage && (
             <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
@@ -199,68 +153,24 @@ export const LoginView: React.FC = () => {
             </div>
           )}
 
-          {/* Form */}
+          {/* Pure Single Common Login Form: Email + Password only */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'REGISTER' && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Full Name
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Vikram Patel"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Operational Role
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Shield className="w-4 h-4" />
-                    </div>
-                    <select
-                      value={selectedRole}
-                      onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium appearance-none"
-                    >
-                      {ROLE_DEFINITIONS.map((r) => (
-                        <option key={r.role} value={r.role}>
-                          {r.role} ({r.department})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Work Email Address
+                Email Address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
                   type="email"
                   required
+                  autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@solarpulse.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium"
+                  placeholder="admin@rejoysolar.com"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium"
                 />
               </div>
             </div>
@@ -270,21 +180,19 @@ export const LoginView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700">
                   Password
                 </label>
-                {mode === 'LOGIN' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResetEmail(email);
-                      setShowForgotModal(true);
-                    }}
-                    className="text-[11px] font-semibold text-amber-600 hover:text-amber-700 transition-colors"
-                  >
-                    Forgot password?
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setShowForgotModal(true);
+                  }}
+                  className="text-[11px] font-semibold text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
+                >
+                  Forgot password?
+                </button>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -293,14 +201,24 @@ export const LoginView: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium"
+                  className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all font-medium"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Show</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -308,73 +226,106 @@ export const LoginView: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || loading}
-              className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 cursor-pointer"
+              className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>{mode === 'LOGIN' ? 'Sign In to Solar ERP' : 'Create ERP Account'}</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
-
-            <div className="pt-3 border-t border-slate-100 text-center">
-              <button
-                type="button"
-                onClick={async () => {
-                  setEmail('admin@solarpulse.com');
-                  setPassword('solarpulse123');
-                  try {
-                    await login('admin@solarpulse.com', 'solarpulse123');
-                  } catch (err: any) {
-                    setErrorMessage(err?.message || 'Login failed');
-                  }
-                }}
-                className="w-full py-2.5 px-3 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 rounded-xl text-xs font-bold text-amber-900 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Instant Demo Login (Super Admin)</span>
-              </button>
-            </div>
           </form>
+
+          {/* Footer note */}
+          <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+              <span>Need help? Contact system administrator.</span>
+            </p>
+          </div>
         </div>
 
-        {/* Security & Deployment Footer */}
-        <div className="text-center mt-6 text-[11px] text-slate-400 flex items-center justify-center gap-2">
-          <Shield className="w-3.5 h-3.5 text-amber-500" />
-          <span>Protected by Firebase Authentication & 256-Bit SSL</span>
+        {/* Developer Quick-Login & Demo Accounts Drawer (Collapsible) */}
+        <div className="mt-5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 p-4 text-white shadow-xl">
+          <button
+            type="button"
+            onClick={() => setShowDevAccounts(prev => !prev)}
+            className="w-full flex items-center justify-between text-left text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Demo Accounts / Fast Login (15 Roles)</span>
+            </div>
+            {showDevAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showDevAccounts && (
+            <div className="mt-3.5 pt-3 border-t border-slate-800 space-y-2 animate-in fade-in">
+              <p className="text-[11px] text-slate-400">
+                Click any role below to instantly log in and preview its tailored operational dashboard:
+              </p>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 max-h-60 overflow-y-auto pr-1">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.role}
+                    type="button"
+                    onClick={() => handleSelectDemoAccount(acc)}
+                    disabled={isSubmitting}
+                    className="p-2 text-left bg-slate-800 hover:bg-amber-500 hover:text-slate-950 border border-slate-700/60 rounded-xl transition-all text-slate-200 group cursor-pointer"
+                  >
+                    <div className="text-[11px] font-bold truncate group-hover:text-slate-950">
+                      {acc.role}
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-mono truncate group-hover:text-slate-900">
+                      {acc.email}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Security badge */}
+        <div className="text-center mt-5 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+          <span>Role-Based Access Control • 256-Bit SSL Encryption</span>
         </div>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-slate-900">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-amber-500" />
-                <h3 className="text-sm font-bold text-slate-900">Reset Password</h3>
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Reset Password</h3>
+                  <p className="text-[11px] text-slate-500">Rejoy Solar Credentials Recovery</p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowForgotModal(false);
                   setResetStatus(null);
                 }}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Enter the email address associated with your Solar ERP account. We will send you a secure link to reset your password.
-            </p>
-
             {resetStatus && (
               <div
-                className={`mb-4 p-3 rounded-xl text-xs flex items-start gap-2 ${
+                className={`mt-4 p-3 rounded-xl text-xs flex items-start gap-2 ${
                   resetStatus.type === 'success'
                     ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                     : 'bg-rose-50 text-rose-800 border border-rose-200'
@@ -385,43 +336,39 @@ export const LoginView: React.FC = () => {
                 ) : (
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 )}
-                <span>{resetStatus.message}</span>
+                <p>{resetStatus.message}</p>
               </div>
             )}
 
-            <form onSubmit={handleResetPassword} className="space-y-3">
+            <form onSubmit={handleResetPassword} className="space-y-3 mt-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Email Address
+                  Registered Email Address
                 </label>
                 <input
                   type="email"
                   required
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="name@solarpulse.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                  placeholder="name@rejoysolar.com"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForgotModal(false);
-                    setResetStatus(null);
-                  }}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                  onClick={() => setShowForgotModal(false)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {resetLoading && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  <span>Send Link</span>
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
                 </button>
               </div>
             </form>

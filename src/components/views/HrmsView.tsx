@@ -44,7 +44,6 @@ export const HrmsView: React.FC = () => {
   const { currentUser } = useAuth();
 
   const isAdmin = Boolean(
-    currentUser?.role === 'Super Admin' ||
     currentUser?.role === 'Admin' ||
     currentUser?.role === 'HR Manager'
   );

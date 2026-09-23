@@ -34,7 +34,7 @@ export interface AclRoleMetadata {
   hierarchyLabel: string;
   description: string;
   badgeColor: string;
-  isSystemLocked?: boolean; // e.g. Super Admin cannot have core permissions revoked
+  isSystemLocked?: boolean; // e.g. Admin cannot have core permissions revoked
 }
 
 export interface AclAuditLogEntry {

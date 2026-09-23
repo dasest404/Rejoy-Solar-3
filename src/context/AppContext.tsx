@@ -4,7 +4,7 @@ import { storageService } from '../services/storage';
 import { ExportModule } from '../services/exportImport';
 import { ReportCategory } from '../types/reports';
 
-export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl';
+export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl' | 'users';
 
 export type AppView =
   | 'dashboard'
@@ -27,7 +27,8 @@ export type AppView =
   | 'service'
   | 'reports'
   | 'settings'
-  | 'customer_portal';
+  | 'customer_portal'
+  | 'users';
 
 export interface ToastMessage {
   id: string;
@@ -103,8 +104,27 @@ const getInitialViewFromPath = (): { view: AppView; filterKey: string | null; se
   if (path === '/settings/whatsapp' || path.endsWith('/settings/whatsapp')) {
     return { view: 'settings', filterKey: null, settingsTab: 'whatsapp' };
   }
+  if (path === '/users' || path === '/settings/users' || path.endsWith('/users')) {
+    return { view: 'users', filterKey: null, settingsTab: 'users' };
+  }
   if (path === '/settings/general' || path.endsWith('/settings/general') || path === '/settings' || path.endsWith('/settings')) {
     return { view: 'settings', filterKey: null, settingsTab: 'general' };
+  }
+
+  // Role-specific dashboard URLs
+  if (
+    path === '/admin/dashboard' ||
+    path === '/sales/dashboard' ||
+    path === '/projects/dashboard' ||
+    path === '/field/dashboard' ||
+    path === '/service/dashboard' ||
+    path === '/finance/dashboard' ||
+    path === '/hr/dashboard'
+  ) {
+    return { view: 'dashboard', filterKey: null };
+  }
+  if (path === '/customer/dashboard') {
+    return { view: 'customer_portal', filterKey: null };
   }
 
   // Core ERP & CRM Modules
@@ -252,6 +272,9 @@ const getPathForView = (view: AppView, filterKey?: string | null, settingsTab?: 
       break;
     case 'inventory_stock':
       route = '/inventory';
+      break;
+    case 'users':
+      route = '/users';
       break;
     default:
       route = '/dashboard';

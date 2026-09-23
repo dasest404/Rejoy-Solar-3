@@ -82,21 +82,13 @@ export const ACL_DOMAINS: AclDomainMetadata[] = [
 
 export const ACL_ROLES_METADATA: AclRoleMetadata[] = [
   {
-    role: 'Super Admin',
-    department: 'Management',
-    hierarchyLevel: 1,
-    hierarchyLabel: 'System Owner (Root)',
-    description: 'Full root access, executive financial authorization, Tally audit, and security policy control',
-    badgeColor: 'bg-purple-100 text-purple-900 border-purple-300',
-    isSystemLocked: true
-  },
-  {
     role: 'Admin',
     department: 'Administration',
     hierarchyLevel: 1,
-    hierarchyLabel: 'System Administrator',
-    description: 'Day-to-day IT & system administration, employee accounts, and operational configuration',
-    badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300'
+    hierarchyLabel: 'System Administrator (Root Authority)',
+    description: 'Full system control, administrative oversight, user management, and security policy control',
+    badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+    isSystemLocked: true
   },
   {
     role: 'Project Manager',
@@ -113,6 +105,14 @@ export const ACL_ROLES_METADATA: AclRoleMetadata[] = [
     hierarchyLabel: 'Field Specialist',
     description: 'Site feasibility assessments, shadow analysis, roof measurements, and pre-engineering survey',
     badgeColor: 'bg-amber-100 text-amber-900 border-amber-300'
+  },
+  {
+    role: 'Site Inspector',
+    department: 'Engineering',
+    hierarchyLevel: 3,
+    hierarchyLabel: 'Quality & Field Auditor',
+    description: 'Site quality inspections, installation audits, safety compliance, and stage validations',
+    badgeColor: 'bg-yellow-100 text-yellow-900 border-yellow-300'
   },
   {
     role: 'Sales Manager',
@@ -557,27 +557,14 @@ const createPermissions = (grantList: string[]): Record<string, boolean> => {
   return result;
 };
 
-// All permissions array for Super Admin
+// All permissions array for Admin (Root Authority)
 const ALL_PERMISSION_IDS = ACL_PERMISSIONS_CATALOG.map(p => p.id);
 
 /**
  * Standard Production-Grade Solar EPC Default Access Control List (ACL)
  */
 export const DEFAULT_SYSTEM_ACL_CONFIG: SystemAclConfig = {
-  'Super Admin': createPermissions(ALL_PERMISSION_IDS),
-
-  'Admin': createPermissions([
-    'crm.leads.view', 'crm.leads.manage', 'crm.quotations.create',
-    'projects.view', 'projects.create', 'projects.edit_specs', 'projects.assign_team',
-    'projects.stage_checklist', 'projects.stage_photos', 'projects.stage_approve',
-    'survey.view', 'survey.submit', 'survey.approve',
-    'inventory.view', 'inventory.manage', 'inventory.bom_edit', 'inventory.purchase_orders',
-    'finance.view', 'finance.invoices', 'finance.receipts', 'finance.tally_sync',
-    'hrms.view', 'hrms.attendance_punch', 'hrms.manage',
-    'service.tickets_view', 'service.tickets_create', 'service.tickets_resolve', 'service.amc_manage',
-    'reports.view', 'reports.export',
-    'settings.view', 'settings.manage', 'settings.acl_manage'
-  ]),
+  'Admin': createPermissions(ALL_PERMISSION_IDS),
 
   'Project Manager': createPermissions([
     'crm.leads.view', 'crm.quotations.create',
@@ -596,6 +583,14 @@ export const DEFAULT_SYSTEM_ACL_CONFIG: SystemAclConfig = {
     'crm.leads.view',
     'projects.view', 'projects.stage_checklist', 'projects.stage_photos',
     'survey.view', 'survey.submit',
+    'hrms.attendance_punch',
+    'settings.view'
+  ]),
+
+  'Site Inspector': createPermissions([
+    'projects.view', 'projects.stage_checklist', 'projects.stage_photos',
+    'survey.view', 'survey.submit',
+    'service.tickets_view', 'service.tickets_resolve',
     'hrms.attendance_punch',
     'settings.view'
   ]),

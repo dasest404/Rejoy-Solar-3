@@ -94,7 +94,7 @@ const initialAclAuditLogs: AclAuditLogEntry[] = [
   {
     id: 'log-1',
     timestamp: '2026-09-18T10:30:00Z',
-    changedBy: 'Vikram Patel (Super Admin)',
+    changedBy: 'Vikram Patel (Admin)',
     targetRole: 'Project Manager',
     action: 'UPDATE_PERMISSIONS',
     summary: 'Granted stage closure sign-off and BOM customization authority'
@@ -110,8 +110,8 @@ const initialAclAuditLogs: AclAuditLogEntry[] = [
   {
     id: 'log-3',
     timestamp: '2026-09-10T09:00:00Z',
-    changedBy: 'Vikram Patel (Super Admin)',
-    targetRole: 'Super Admin',
+    changedBy: 'Vikram Patel (Admin)',
+    targetRole: 'Admin',
     action: 'RESET_ROLE',
     summary: 'Initialized baseline Solar EPC security matrix across all 15 operational tiers'
   }
@@ -124,15 +124,16 @@ const initialEmployees: Employee[] = [
     employeeCode: 'EMP001',
     name: 'Vikram Patel',
     photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
-    department: 'Management',
-    designation: 'Managing Director & Super Admin',
+    department: 'Administration',
+    designation: 'Managing Director & Admin',
     phone: '+91 98250 11223',
-    email: 'vikram.patel@solarpulse.com',
+    email: 'admin@rejoysolar.com',
     joiningDate: '2021-01-15',
     salaryMonthly: 180000,
     status: 'ACTIVE',
     loginEnabled: true,
-    systemRole: 'Super Admin',
+    systemRole: 'Admin',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2021-01-15T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -145,12 +146,13 @@ const initialEmployees: Employee[] = [
     department: 'Operations',
     designation: 'Senior Project Manager',
     phone: '+91 98251 22334',
-    email: 'amit.sharma@solarpulse.com',
+    email: 'projectmanager@rejoysolar.com',
     joiningDate: '2021-04-01',
     salaryMonthly: 95000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Project Manager',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2021-04-01T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -161,15 +163,16 @@ const initialEmployees: Employee[] = [
     name: 'Rajesh Kumar',
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150',
     department: 'Engineering',
-    designation: 'Lead Site Survey & Civil Engineer',
+    designation: 'Lead Site Survey Engineer',
     phone: '+91 98252 33445',
-    email: 'rajesh.kumar@solarpulse.com',
+    email: 'survey@rejoysolar.com',
     joiningDate: '2022-02-10',
     salaryMonthly: 65000,
     status: 'IN FIELD',
     currentSiteLocation: 'Sanand Industrial Estate, Plot 42',
     loginEnabled: true,
     systemRole: 'Site Survey Engineer',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-02-10T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -182,12 +185,13 @@ const initialEmployees: Employee[] = [
     department: 'Sales',
     designation: 'Sales Manager - Commercial & Industrial',
     phone: '+91 98253 44556',
-    email: 'priya.verma@solarpulse.com',
+    email: 'salesmanager@rejoysolar.com',
     joiningDate: '2021-08-15',
     salaryMonthly: 75000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Sales Manager',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2021-08-15T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -200,12 +204,13 @@ const initialEmployees: Employee[] = [
     department: 'Sales',
     designation: 'Solar Sales Executive',
     phone: '+91 98254 55667',
-    email: 'rahul.mehta@solarpulse.com',
+    email: 'sales@rejoysolar.com',
     joiningDate: '2023-03-01',
     salaryMonthly: 45000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Sales Executive',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2023-03-01T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -218,12 +223,13 @@ const initialEmployees: Employee[] = [
     department: 'Structure',
     designation: 'Structure Fabrication Lead',
     phone: '+91 98255 66778',
-    email: 'dinesh.yadav@solarpulse.com',
+    email: 'structure@rejoysolar.com',
     joiningDate: '2022-06-15',
     salaryMonthly: 48000,
     status: 'IN FIELD',
     loginEnabled: true,
     systemRole: 'Structure Team',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-06-15T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -236,12 +242,13 @@ const initialEmployees: Employee[] = [
     department: 'Installation',
     designation: 'Solar Module Installation Lead',
     phone: '+91 98256 77889',
-    email: 'manoj.tiwari@solarpulse.com',
+    email: 'installation@rejoysolar.com',
     joiningDate: '2022-09-01',
     salaryMonthly: 46000,
     status: 'IN FIELD',
     loginEnabled: true,
     systemRole: 'Installation Team',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-09-01T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -254,12 +261,13 @@ const initialEmployees: Employee[] = [
     department: 'Electrical',
     designation: 'Senior Electrical Engineer (LT/HT)',
     phone: '+91 98257 88990',
-    email: 'ankit.joshi@solarpulse.com',
+    email: 'electrical@rejoysolar.com',
     joiningDate: '2021-11-20',
     salaryMonthly: 62000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Electrical Team',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2021-11-20T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -272,12 +280,13 @@ const initialEmployees: Employee[] = [
     department: 'Finance',
     designation: 'Chief Accountant & Tally Specialist',
     phone: '+91 98258 99001',
-    email: 'sneha.kulkarni@solarpulse.com',
+    email: 'accountant@rejoysolar.com',
     joiningDate: '2021-03-10',
     salaryMonthly: 68000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Accountant',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2021-03-10T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -290,12 +299,13 @@ const initialEmployees: Employee[] = [
     department: 'HR',
     designation: 'HR & Admin Manager',
     phone: '+91 98259 00112',
-    email: 'neha.gupta@solarpulse.com',
+    email: 'hr@rejoysolar.com',
     joiningDate: '2022-01-05',
     salaryMonthly: 58000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'HR Manager',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-01-05T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -306,14 +316,15 @@ const initialEmployees: Employee[] = [
     name: 'Rohit Verma',
     photoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150',
     department: 'Service',
-    designation: 'Service Manager & Solar Technician',
+    designation: 'Service Manager',
     phone: '+91 98260 11223',
-    email: 'rohit.verma@solarpulse.com',
+    email: 'service@rejoysolar.com',
     joiningDate: '2022-08-12',
     salaryMonthly: 52000,
     status: 'ACTIVE',
     loginEnabled: true,
     systemRole: 'Service Manager',
+    isFieldWorker: false,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-08-12T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -326,12 +337,13 @@ const initialEmployees: Employee[] = [
     department: 'Service',
     designation: 'Field Service Technician',
     phone: '+91 98261 22334',
-    email: 'ketan.solanki@solarpulse.com',
+    email: 'technician@rejoysolar.com',
     joiningDate: '2023-01-10',
     salaryMonthly: 38000,
     status: 'IN FIELD',
     loginEnabled: true,
     systemRole: 'Technician',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2023-01-10T10:00:00Z',
     accountCreatedBy: 'System Init'
@@ -344,14 +356,34 @@ const initialEmployees: Employee[] = [
     department: 'Engineering',
     designation: 'Senior Site Inspector & Quality Auditor',
     phone: '+91 98262 33445',
-    email: 'hardik.shah@solarpulse.com',
+    email: 'inspector@rejoysolar.com',
     joiningDate: '2022-04-18',
     salaryMonthly: 55000,
     status: 'IN FIELD',
     loginEnabled: true,
-    systemRole: 'Site Survey Engineer',
+    systemRole: 'Site Inspector',
+    isFieldWorker: true,
     accountStatus: 'ACTIVE',
     accountCreatedAt: '2022-04-18T10:00:00Z',
+    accountCreatedBy: 'System Init'
+  },
+  {
+    id: 'emp-14',
+    employeeCode: 'EMP014',
+    name: 'Suresh Patel',
+    photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150',
+    department: 'Civil',
+    designation: 'Civil Foundations Lead',
+    phone: '+91 98263 44556',
+    email: 'civil@rejoysolar.com',
+    joiningDate: '2022-05-10',
+    salaryMonthly: 47000,
+    status: 'IN FIELD',
+    loginEnabled: true,
+    systemRole: 'Civil Team',
+    isFieldWorker: true,
+    accountStatus: 'ACTIVE',
+    accountCreatedAt: '2022-05-10T10:00:00Z',
     accountCreatedBy: 'System Init'
   }
 ];
@@ -363,7 +395,7 @@ const initialCustomers: Customer[] = [
     companyName: 'ABC Heavy Engineering Private Limited',
     customerType: 'Industrial',
     phone: '+91 98795 44321',
-    email: 'procurement@abcindustries.in',
+    email: 'customer@rejoysolar.com',
     siteAddress: 'Plot No. 42-45, GIDC Industrial Estate, Sanand',
     city: 'Ahmedabad',
     state: 'Gujarat',
@@ -3096,7 +3128,6 @@ class StorageService {
     // Explicitly validate role is an eligible project specialist role
     if (
       assignmentData.role === 'Accountant' ||
-      (assignmentData.role as string) === 'Super Admin' ||
       (assignmentData.role as string) === 'Admin' ||
       (assignmentData.role as string) === 'HR Manager' ||
       (assignmentData.role as string) === 'Customer'
@@ -3104,15 +3135,13 @@ class StorageService {
       throw new Error(`Role "${assignmentData.role}" is not eligible for project specialist assignment. Only field, technical, service, or sales coordination specialists may be assigned.`);
     }
 
-    // Explicitly validate that employee is not an excluded user (Super Admin, Admin, Accountant, HR Manager, Customer)
+    // Explicitly validate that employee is not an excluded user (Admin, Accountant, HR Manager, Customer)
     const emp = this.getEmployees().find(e => e.id === assignmentData.userId);
     if (emp) {
       const desig = (emp.designation || '').toLowerCase().trim();
       const dept = (emp.department || '').toLowerCase().trim();
       if (
-        desig.includes('super admin') ||
-        desig.includes('superadmin') ||
-        desig.includes('managing director') ||
+        desig.includes('director') ||
         desig === 'admin' ||
         desig.includes('admin ') ||
         desig.includes(' admin') ||
@@ -3215,7 +3244,7 @@ class StorageService {
     const asgnIndex = project.assignedUsers.findIndex(a => a.id === assignmentId);
     if (asgnIndex === -1) return false;
 
-    if (updates.role === 'Accountant' || (updates.role as string) === 'Super Admin' || (updates.role as string) === 'Admin' || (updates.role as string) === 'HR Manager' || (updates.role as string) === 'Customer') {
+    if (updates.role === 'Accountant' || (updates.role as string) === 'Admin' || (updates.role as string) === 'HR Manager' || (updates.role as string) === 'Customer') {
       throw new Error(`Role "${updates.role}" is not an eligible project specialist role.`);
     }
 
@@ -4321,11 +4350,11 @@ class StorageService {
       ...permissions
     };
 
-    // If Super Admin, ensure core root permissions cannot be accidentally ungranted
-    if (role === 'Super Admin') {
-      config['Super Admin']['settings.acl_manage'] = true;
-      config['Super Admin']['settings.manage'] = true;
-      config['Super Admin']['settings.view'] = true;
+    // If Admin, ensure core root permissions cannot be accidentally ungranted
+    if (role === 'Admin') {
+      config['Admin']['settings.acl_manage'] = true;
+      config['Admin']['settings.manage'] = true;
+      config['Admin']['settings.view'] = true;
     }
 
     this.saveAclConfig(config);
@@ -4360,7 +4389,7 @@ class StorageService {
 
     this.addAclAuditLog({
       changedBy,
-      targetRole: 'Super Admin',
+      targetRole: 'Admin',
       action: 'RESET_ROLE',
       summary: 'Restored baseline Solar EPC permissions for all 15 operational roles'
     });
@@ -4369,11 +4398,24 @@ class StorageService {
   }
 
   hasAclPermission(role: UserRole, permissionId: string): boolean {
-    if (role === 'Super Admin') return true;
+    if (role === 'Admin') return true;
     const config = this.getAclConfig();
     const rolePerms = config[role];
     if (!rolePerms) return false;
     return Boolean(rolePerms[permissionId]);
+  }
+
+  assertPermission(role: UserRole, permissionId: string, actionDescription?: string): void {
+    if (role === 'Admin') return;
+    if (!this.hasAclPermission(role, permissionId)) {
+      throw new Error(`Security Exception: Access Denied. Role "${role}" is not authorized to ${actionDescription || permissionId}.`);
+    }
+  }
+
+  assertAdmin(role: UserRole, actionDescription?: string): void {
+    if (role !== 'Admin') {
+      throw new Error(`Security Exception: Access Denied. Role "${role}" is not authorized for administrative operation: ${actionDescription || 'Admin access required'}.`);
+    }
   }
 
   getAclAuditLogs(): AclAuditLogEntry[] {
