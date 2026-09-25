@@ -2,7 +2,17 @@ import { UserRole } from './solar';
 
 export type WorkforceLiveStatus = 'online' | 'moving' | 'idle' | 'offline';
 
-export type PusherConnectionState = 'connected' | 'connecting' | 'disconnected';
+export type RealtimeTransportState =
+  | 'pusher-connected'
+  | 'pusher-connecting'
+  | 'sse-fallback'
+  | 'disconnected';
+
+export type PusherConnectionState =
+  | 'connected'
+  | 'connecting'
+  | 'disconnected'
+  | RealtimeTransportState;
 
 // Centralized timing constants for presence & heartbeat
 export const PRESENCE_TIMEOUT_MS = 60 * 1000; // 60 seconds without heartbeat marks worker offline

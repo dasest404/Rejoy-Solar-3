@@ -10,18 +10,46 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+function cleanEnv(val?: string | null): string {
+  if (!val) return '';
+  let cleaned = String(val).trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  if (cleaned.startsWith('${') && cleaned.endsWith('}')) {
+    cleaned = cleaned.slice(2, -1).trim();
+  }
+  if (cleaned === 'undefined' || cleaned === 'null') return '';
+  return cleaned;
+}
+
+function getPusherConfig() {
+  const appId = cleanEnv(process.env.PUSHER_APP_ID || process.env.VITE_PUSHER_APP_ID);
+  const key = cleanEnv(
+    process.env.PUSHER_APP_KEY ||
+    process.env.VITE_PUSHER_APP_KEY ||
+    process.env.PUSHER_KEY ||
+    process.env.VITE_PUSHER_KEY
+  );
+  const secret = cleanEnv(process.env.PUSHER_APP_SECRET || process.env.PUSHER_SECRET);
+  const cluster = cleanEnv(
+    process.env.PUSHER_APP_CLUSTER ||
+    process.env.VITE_PUSHER_APP_CLUSTER ||
+    process.env.PUSHER_CLUSTER ||
+    process.env.VITE_PUSHER_CLUSTER
+  ) || 'ap2';
+
+  return { appId, key, secret, cluster };
+}
+
 // Pusher Server-side instance
 let pusherServer: Pusher | null = null;
-let pusherChecked = false;
+let pusherLogged = false;
 
 function getPusherServer(): Pusher | null {
-  if (pusherChecked) return pusherServer;
-  pusherChecked = true;
+  if (pusherServer) return pusherServer;
 
-  const appId = process.env.PUSHER_APP_ID || process.env.VITE_PUSHER_APP_ID;
-  const key = process.env.PUSHER_APP_KEY || process.env.VITE_PUSHER_APP_KEY || process.env.PUSHER_KEY || process.env.VITE_PUSHER_KEY;
-  const secret = process.env.PUSHER_APP_SECRET || process.env.PUSHER_SECRET;
-  const cluster = process.env.PUSHER_APP_CLUSTER || process.env.VITE_PUSHER_APP_CLUSTER || process.env.PUSHER_CLUSTER || process.env.VITE_PUSHER_CLUSTER || 'mt1';
+  const { appId, key, secret, cluster } = getPusherConfig();
 
   if (appId && key && secret) {
     try {
@@ -32,14 +60,29 @@ function getPusherServer(): Pusher | null {
         cluster,
         useTLS: true
       });
-      console.log(`[Pusher] Initialized server broadcast on cluster '${cluster}'`);
+      if (!pusherLogged) {
+        pusherLogged = true;
+        console.log(`[Pusher Server] configured: true`);
+        console.log(`[Pusher Server] cluster: ${cluster}`);
+        console.log(`[Pusher Server] public key configured: true`);
+        console.log(`[Pusher Server] secret configured: true`);
+      }
       return pusherServer;
-    } catch (err) {
-      console.warn('[Pusher] Failed to initialize Pusher server:', err);
+    } catch (err: any) {
+      console.warn('[Pusher Server] Failed to initialize Pusher server:', err?.message || err);
     }
+  } else if (!pusherLogged) {
+    pusherLogged = true;
+    console.log(`[Pusher Server] configured: false`);
+    console.log(`[Pusher Server] cluster: ${cluster || 'none'}`);
+    console.log(`[Pusher Server] public key configured: ${Boolean(key)}`);
+    console.log(`[Pusher Server] secret configured: ${Boolean(secret)}`);
   }
   return null;
 }
+
+// Trigger initial server check & log diagnostics on startup
+getPusherServer();
 
 // Firebase Admin SDK safe initialization
 let firebaseAdminApp: App | null = null;
@@ -184,8 +227,10 @@ async function startServer() {
       try {
         await pusher.trigger('my-channel', eventType, data);
       } catch (err: any) {
-        console.warn(`[Pusher] Trigger error for ${eventType}:`, err?.message || err);
+        console.warn(`[Pusher Server] Trigger failed for event '${eventType}':`, err?.message || err);
       }
+    } else {
+      console.warn(`[Pusher Server] NOT CONFIGURED - skipping Pusher broadcast for '${eventType}'`);
     }
 
     // 2. Broadcast to all active Server-Sent Events subscribers
@@ -236,24 +281,39 @@ async function startServer() {
 
   // Pusher Public Client Configuration
   app.get('/api/pusher/config', (_req, res) => {
-    const key =
-      process.env.VITE_PUSHER_KEY ||
-      process.env.PUSHER_KEY ||
-      process.env.VITE_PUSHER_APP_KEY ||
-      process.env.PUSHER_APP_KEY ||
-      '';
-    const cluster =
-      process.env.VITE_PUSHER_CLUSTER ||
-      process.env.PUSHER_CLUSTER ||
-      process.env.VITE_PUSHER_APP_CLUSTER ||
-      process.env.PUSHER_APP_CLUSTER ||
-      'mt1';
+    const { key, cluster } = getPusherConfig();
+    if (key) {
+      res.json({
+        configured: true,
+        key,
+        cluster,
+        channel: 'my-channel',
+        event: 'location.updated'
+      });
+    } else {
+      res.json({
+        configured: false,
+        key: null,
+        cluster: null,
+        channel: 'my-channel',
+        event: 'location.updated',
+        error: 'Pusher public configuration is missing on the server.'
+      });
+    }
+  });
+
+  // Pusher Production Diagnostic Status
+  app.get('/api/pusher/status', (_req, res) => {
+    const { appId, key, secret, cluster } = getPusherConfig();
+    const serverConfigured = Boolean(appId && key && secret);
     res.json({
-      configured: Boolean(key),
-      key,
-      cluster,
+      serverConfigured,
+      publicKeyConfigured: Boolean(key),
+      clusterConfigured: Boolean(cluster),
+      cluster: cluster || null,
       channel: 'my-channel',
-      event: 'location.updated'
+      locationEvent: 'location.updated',
+      presenceEvent: 'presence.updated'
     });
   });
 

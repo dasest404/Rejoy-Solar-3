@@ -8,10 +8,10 @@
     "activity": "Approaching project site",
     "updatedAt": "2026-09-24T13:54:10.106Z",
     "lastSeenAt": "2026-09-24T13:54:10.106Z",
-    "isOnline": true,
+    "isOnline": false,
     "isSharingLocation": true,
     "hasLocation": true,
-    "status": "moving"
+    "status": "offline"
   },
   {
     "userId": "emp-8",
@@ -23,19 +23,46 @@
     "activity": "On site electrical inspection",
     "updatedAt": "2026-09-24T13:53:56.866Z",
     "lastSeenAt": "2026-09-24T13:53:56.866Z",
-    "isOnline": true,
+    "isOnline": false,
     "isSharingLocation": true,
     "hasLocation": true,
-    "status": "idle"
+    "status": "offline"
   },
   {
     "userId": "emp-6",
     "role": "Field Engineer",
     "updatedAt": "2026-09-24T13:53:56.869Z",
     "lastSeenAt": "2026-09-24T13:53:56.869Z",
+    "isOnline": false,
+    "isSharingLocation": false,
+    "hasLocation": false,
+    "status": "offline"
+  },
+  {
+    "userId": "admin@rejoysolar.com",
+    "name": "Vikram Patel",
+    "role": "Admin",
+    "updatedAt": "2026-09-25T09:02:05.460Z",
+    "lastSeenAt": "2026-09-25T11:24:41.483Z",
     "isOnline": true,
     "isSharingLocation": false,
     "hasLocation": false,
     "status": "online"
+  },
+  {
+    "userId": "test-engineer-1",
+    "name": "Rajesh Kumar",
+    "role": "Site Survey Engineer",
+    "latitude": 23.0225,
+    "longitude": 72.5714,
+    "accuracy": 15,
+    "speed": 12,
+    "activity": "In Transit / Moving",
+    "updatedAt": "2026-09-25T11:24:14.783Z",
+    "lastSeenAt": "2026-09-25T11:24:14.783Z",
+    "isOnline": true,
+    "isSharingLocation": true,
+    "hasLocation": true,
+    "status": "moving"
   }
 ]

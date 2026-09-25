@@ -1,21 +1,40 @@
 import Pusher, { Channel } from 'pusher-js';
-import { LocationUpdatePayload, PresenceUpdatePayload, PusherConnectionState } from '../types/tracking';
+import {
+  LocationUpdatePayload,
+  PresenceUpdatePayload,
+  PusherConnectionState,
+  RealtimeTransportState
+} from '../types/tracking';
 
 const DEFAULT_CHANNEL_NAME = 'my-channel';
 const DEFAULT_LOCATION_EVENT = 'location.updated';
 const DEFAULT_PRESENCE_EVENT = 'presence.updated';
 const LOCAL_BROADCAST_CHANNEL = 'solarpulse_pusher_location_broadcast';
 
+function cleanConfigVal(val?: string | null): string {
+  if (!val) return '';
+  let str = String(val).trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  if (str.startsWith('${') && str.endsWith('}')) {
+    str = str.slice(2, -1).trim();
+  }
+  if (str === 'undefined' || str === 'null') return '';
+  return str;
+}
+
 class PusherService {
   private pusher: Pusher | null = null;
   private channel: Channel | null = null;
-  private connectionState: PusherConnectionState = 'connecting';
-  private connectionListeners: Set<(state: PusherConnectionState) => void> = new Set();
+  private connectionState: RealtimeTransportState = 'pusher-connecting';
+  private connectionListeners: Set<(state: RealtimeTransportState) => void> = new Set();
   private locationListeners: Set<(payload: LocationUpdatePayload) => void> = new Set();
   private presenceListeners: Set<(payload: PresenceUpdatePayload) => void> = new Set();
   private localBroadcast: BroadcastChannel | null = null;
   private sseSource: EventSource | null = null;
   private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -32,99 +51,134 @@ class PusherService {
           };
         }
       } catch (e) {
-        console.warn('Local broadcast fallback not initialized:', e);
+        console.warn('[Pusher] Local broadcast fallback not initialized:', e);
       }
 
       this.init();
     }
   }
 
-  private async init() {
+  public async init(): Promise<void> {
     if (this.isInitialized) return;
-    this.isInitialized = true;
+    if (this.initPromise) return this.initPromise;
 
-    // Check frontend env vars (support both VITE_PUSHER_KEY and VITE_PUSHER_APP_KEY)
-    let appKey =
-      (import.meta.env.VITE_PUSHER_KEY as string | undefined) ||
-      (import.meta.env.VITE_PUSHER_APP_KEY as string | undefined);
-    let cluster =
-      (import.meta.env.VITE_PUSHER_CLUSTER as string | undefined) ||
-      (import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined) ||
-      'mt1';
+    this.initPromise = (async () => {
+      this.isInitialized = true;
 
-    // If not in env, fetch from backend config endpoint
-    if (!appKey) {
+      // 1. Read Vite environment variables (build-time candidate)
+      let appKey = cleanConfigVal(
+        (import.meta.env.VITE_PUSHER_APP_KEY as string | undefined) ||
+        (import.meta.env.VITE_PUSHER_KEY as string | undefined)
+      );
+      let cluster = cleanConfigVal(
+        (import.meta.env.VITE_PUSHER_APP_CLUSTER as string | undefined) ||
+        (import.meta.env.VITE_PUSHER_CLUSTER as string | undefined)
+      ) || 'ap2';
+      let configSource = 'Vite Environment';
+
+      // 2. Fetch live runtime config from backend /api/pusher/config
+      // This guarantees production connects even if frontend was built before .env was configured
       try {
         const res = await fetch('/api/pusher/config');
         if (res.ok) {
           const config = await res.json();
-          if (config.key) {
-            appKey = config.key;
-            cluster = config.cluster || cluster;
+          const serverKey = cleanConfigVal(config.key);
+          const serverCluster = cleanConfigVal(config.cluster);
+          if (config.configured && serverKey) {
+            appKey = serverKey;
+            cluster = serverCluster || cluster;
+            configSource = 'Backend (/api/pusher/config)';
           }
         }
-      } catch {
-        // Backend config fetch optional
+      } catch (fetchErr) {
+        console.warn('[Pusher] Could not query /api/pusher/config, using local env fallback:', fetchErr);
       }
-    }
 
-    if (!appKey) {
-      console.info(
-        '[Pusher] Public Pusher key not set. Connecting to server real-time stream as backup.'
-      );
-      this.initSseFallback();
-      return;
-    }
+      console.log(`[Pusher] Configuration source: ${configSource}`);
+      console.log(`[Pusher] Public key configured: ${Boolean(appKey)}`);
+      console.log(`[Pusher] Cluster: ${cluster}`);
 
-    try {
-      this.updateConnectionState('connecting');
-
-      this.pusher = new Pusher(appKey, {
-        cluster,
-        forceTLS: true
-      });
-
-      // Bind connection state handlers
-      this.pusher.connection.bind('connected', () => {
-        this.updateConnectionState('connected');
-      });
-
-      this.pusher.connection.bind('connecting', () => {
-        this.updateConnectionState('connecting');
-      });
-
-      this.pusher.connection.bind('disconnected', () => {
-        this.updateConnectionState('disconnected');
-      });
-
-      this.pusher.connection.bind('unavailable', () => {
-        this.updateConnectionState('disconnected');
-      });
-
-      this.pusher.connection.bind('failed', () => {
-        this.updateConnectionState('disconnected');
+      if (!appKey) {
+        console.warn('[Pusher] Public key configured: false');
+        console.warn('[Pusher] No public key found in Vite env or /api/pusher/config. Activating SSE fallback...');
+        this.updateConnectionState('sse-fallback');
         this.initSseFallback();
-      });
+        return;
+      }
 
-      // Subscribe to single location & presence stream channel
-      this.channel = this.pusher.subscribe(DEFAULT_CHANNEL_NAME);
+      try {
+        this.updateConnectionState('pusher-connecting');
+        console.log('[Pusher] Connecting...');
 
-      this.channel.bind(DEFAULT_LOCATION_EVENT, (data: LocationUpdatePayload) => {
-        if (data && data.userId && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-          this.dispatchLocationUpdate(data, false);
-        }
-      });
+        this.pusher = new Pusher(appKey, {
+          cluster,
+          forceTLS: true
+        });
 
-      this.channel.bind(DEFAULT_PRESENCE_EVENT, (data: PresenceUpdatePayload) => {
-        if (data && data.userId) {
-          this.dispatchPresenceUpdate(data, false);
-        }
-      });
-    } catch (err) {
-      console.warn('[Pusher] Error initializing Pusher client:', err);
-      this.updateConnectionState('disconnected');
-      this.initSseFallback();
-    }
+        // Bind connection state handlers
+        this.pusher.connection.bind('state_change', (states: { previous: string; current: string }) => {
+          console.log(`[Pusher] Connection state: ${states.current}`);
+          if (states.current === 'connected') {
+            this.updateConnectionState('pusher-connected');
+            // If SSE fallback was active, close it since Pusher is now connected
+            if (this.sseSource) {
+              this.sseSource.close();
+              this.sseSource = null;
+            }
+          } else if (states.current === 'connecting') {
+            this.updateConnectionState('pusher-connecting');
+          } else if (states.current === 'unavailable' || states.current === 'failed') {
+            console.warn(`[Pusher] Connection state: ${states.current}. Activating SSE fallback...`);
+            this.updateConnectionState('sse-fallback');
+            this.initSseFallback();
+          } else if (states.current === 'disconnected') {
+            if (this.sseSource && this.sseSource.readyState === EventSource.OPEN) {
+              this.updateConnectionState('sse-fallback');
+            } else {
+              this.updateConnectionState('disconnected');
+            }
+          }
+        });
+
+        this.pusher.connection.bind('error', (err: any) => {
+          console.warn('[Pusher] WebSocket connection error:', err?.error?.data?.message || err?.message || err);
+          this.initSseFallback();
+        });
+
+        // Subscribe to central location & presence channel
+        console.log(`[Pusher] Channel subscription: ${DEFAULT_CHANNEL_NAME}`);
+        this.channel = this.pusher.subscribe(DEFAULT_CHANNEL_NAME);
+
+        this.channel.bind('pusher:subscription_succeeded', () => {
+          console.log(`[Pusher] Subscription succeeded: ${DEFAULT_CHANNEL_NAME}`);
+        });
+
+        this.channel.bind('pusher:subscription_error', (status: any) => {
+          console.error(`[Pusher] Subscription failed: ${DEFAULT_CHANNEL_NAME}`, status);
+          this.initSseFallback();
+        });
+
+        console.log(`[Pusher] Event binding: ${DEFAULT_LOCATION_EVENT}`);
+        this.channel.bind(DEFAULT_LOCATION_EVENT, (data: LocationUpdatePayload) => {
+          if (data && data.userId && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+            this.dispatchLocationUpdate(data, false);
+          }
+        });
+
+        console.log(`[Pusher] Event binding: ${DEFAULT_PRESENCE_EVENT}`);
+        this.channel.bind(DEFAULT_PRESENCE_EVENT, (data: PresenceUpdatePayload) => {
+          if (data && data.userId) {
+            this.dispatchPresenceUpdate(data, false);
+          }
+        });
+      } catch (err) {
+        console.warn('[Pusher] Error initializing Pusher client:', err);
+        this.updateConnectionState('sse-fallback');
+        this.initSseFallback();
+      }
+    })();
+
+    return this.initPromise;
   }
 
   // Backup Server-Sent Events stream when Pusher is absent or unavailable
@@ -132,12 +186,14 @@ class PusherService {
     if (this.sseSource || typeof window === 'undefined') return;
 
     try {
+      console.info('[Pusher] Starting SSE fallback (/api/workforce/stream)...');
       this.sseSource = new EventSource('/api/workforce/stream');
 
       this.sseSource.onopen = () => {
-        // In local/dev fallback mode, mark connected
-        if (!this.pusher || this.connectionState !== 'connected') {
-          this.updateConnectionState('connected');
+        console.log('[Pusher] SSE fallback connected successfully');
+        // Only mark sse-fallback if Pusher is not already connected
+        if (!this.pusher || this.connectionState !== 'pusher-connected') {
+          this.updateConnectionState('sse-fallback');
         }
       };
 
@@ -164,16 +220,20 @@ class PusherService {
       });
 
       this.sseSource.onerror = () => {
-        if (!this.pusher) {
+        if (!this.pusher || this.connectionState !== 'pusher-connected') {
+          console.warn('[Pusher] SSE fallback stream disconnected');
           this.updateConnectionState('disconnected');
         }
       };
     } catch (e) {
-      console.warn('SSE fallback error:', e);
+      console.warn('[Pusher] SSE fallback error:', e);
+      if (this.connectionState !== 'pusher-connected') {
+        this.updateConnectionState('disconnected');
+      }
     }
   }
 
-  private updateConnectionState(newState: PusherConnectionState) {
+  private updateConnectionState(newState: RealtimeTransportState) {
     this.connectionState = newState;
     this.connectionListeners.forEach((listener) => {
       try {
@@ -314,7 +374,7 @@ class PusherService {
   /**
    * Subscribe to connection state changes
    */
-  onConnectionChange(callback: (state: PusherConnectionState) => void): () => void {
+  onConnectionChange(callback: (state: RealtimeTransportState) => void): () => void {
     this.connectionListeners.add(callback);
     callback(this.connectionState);
     return () => {
@@ -322,7 +382,7 @@ class PusherService {
     };
   }
 
-  getConnectionState(): PusherConnectionState {
+  getConnectionState(): RealtimeTransportState {
     return this.connectionState;
   }
 
@@ -341,6 +401,7 @@ class PusherService {
       this.sseSource = null;
     }
     this.isInitialized = false;
+    this.initPromise = null;
   }
 }
 

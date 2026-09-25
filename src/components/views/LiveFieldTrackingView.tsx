@@ -142,7 +142,7 @@ export const LiveFieldTrackingView: React.FC = () => {
 
   // Pusher connection status badge configuration
   const renderConnectionBadge = () => {
-    if (pusherState === 'connected') {
+    if (pusherState === 'pusher-connected' || pusherState === 'connected') {
       return (
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-bold shadow-2xs">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
@@ -151,19 +151,29 @@ export const LiveFieldTrackingView: React.FC = () => {
         </div>
       );
     }
-    if (pusherState === 'connecting') {
+    if (pusherState === 'pusher-connecting' || pusherState === 'connecting') {
       return (
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 text-xs font-bold shadow-2xs">
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-          <span>🟡 CONNECTING...</span>
+          <span>🟡 CONNECTING</span>
+          <span className="text-amber-700 font-medium hidden sm:inline">• Pusher</span>
+        </div>
+      );
+    }
+    if (pusherState === 'sse-fallback') {
+      return (
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span>🟠 SSE FALLBACK</span>
+          <span className="text-amber-800 font-medium hidden sm:inline">• Server Stream</span>
         </div>
       );
     }
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 text-rose-800 border border-rose-300 text-xs font-bold shadow-2xs">
         <span className="w-2 h-2 rounded-full bg-rose-500" />
-        <span>🔴 LOCAL STREAM</span>
-        <span className="text-rose-700 font-normal hidden sm:inline">• Server Fallback</span>
+        <span>🔴 OFFLINE</span>
+        <span className="text-rose-700 font-normal hidden sm:inline">• Realtime Unavailable</span>
       </div>
     );
   };
