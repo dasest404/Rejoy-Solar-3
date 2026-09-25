@@ -49,10 +49,10 @@ export const FieldEmployeeList: React.FC<FieldEmployeeListProps> = ({
   // Compute live counters strictly from actual locations
   const stats = useMemo(() => {
     const total = locations.length;
-    const online = locations.filter((l) => l.hasLocation && (l.status === 'online' || l.status === 'moving')).length;
-    const moving = locations.filter((l) => l.hasLocation && l.status === 'moving').length;
-    const idle = locations.filter((l) => l.hasLocation && l.status === 'idle').length;
-    const offline = locations.filter((l) => !l.hasLocation || l.status === 'offline').length;
+    const online = locations.filter((l) => l.isOnline).length;
+    const moving = locations.filter((l) => l.isOnline && l.status === 'moving').length;
+    const idle = locations.filter((l) => l.isOnline && l.status === 'idle').length;
+    const offline = locations.filter((l) => !l.isOnline).length;
     const assigned = locations.filter((l) => Boolean(l.assignedProjectId)).length;
     return { total, online, moving, idle, offline, assigned };
   }, [locations]);
@@ -76,13 +76,13 @@ export const FieldEmployeeList: React.FC<FieldEmployeeListProps> = ({
       // Status filter
       if (filters.status !== 'ALL') {
         if (filters.status === 'online') {
-          if (!emp.hasLocation || emp.status === 'offline') return false;
+          if (!emp.isOnline) return false;
         } else if (filters.status === 'moving') {
-          if (!emp.hasLocation || emp.status !== 'moving') return false;
+          if (!emp.isOnline || emp.status !== 'moving') return false;
         } else if (filters.status === 'idle') {
-          if (!emp.hasLocation || emp.status !== 'idle') return false;
+          if (!emp.isOnline || emp.status !== 'idle') return false;
         } else if (filters.status === 'offline') {
-          if (emp.hasLocation && emp.status !== 'offline') return false;
+          if (emp.isOnline) return false;
         }
       }
 

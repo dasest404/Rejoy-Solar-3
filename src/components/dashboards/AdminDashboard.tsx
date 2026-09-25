@@ -79,11 +79,9 @@ export const AdminDashboard: React.FC = () => {
   }, []);
 
   const liveStats = useMemo(() => {
-    const online = liveLocations.filter(
-      (l) => l.hasLocation && (l.status === 'online' || l.status === 'moving')
-    ).length;
-    const moving = liveLocations.filter((l) => l.hasLocation && l.status === 'moving').length;
-    const idle = liveLocations.filter((l) => l.hasLocation && l.status === 'idle').length;
+    const online = liveLocations.filter((l) => l.isOnline).length;
+    const moving = liveLocations.filter((l) => l.isOnline && l.status === 'moving').length;
+    const idle = liveLocations.filter((l) => l.isOnline && l.status === 'idle').length;
     return { online, moving, idle, total: liveLocations.length };
   }, [liveLocations]);
 

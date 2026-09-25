@@ -4,6 +4,10 @@ export type WorkforceLiveStatus = 'online' | 'moving' | 'idle' | 'offline';
 
 export type PusherConnectionState = 'connected' | 'connecting' | 'disconnected';
 
+// Centralized timing constants for presence & heartbeat
+export const PRESENCE_TIMEOUT_MS = 60 * 1000; // 60 seconds without heartbeat marks worker offline
+export const HEARTBEAT_INTERVAL_MS = 25 * 1000; // 25 seconds heartbeat interval
+
 export interface LocationCoordinates {
   latitude: number;
   longitude: number;
@@ -21,16 +25,29 @@ export interface LocationUpdatePayload {
   batteryLevel?: number;
 }
 
+export interface PresenceUpdatePayload {
+  userId: string;
+  isOnline: boolean;
+  lastSeenAt: string;
+  isSharingLocation?: boolean;
+}
+
 export interface LiveEmployeeLocation {
   userId: string;
   employeeCode?: string;
   name: string;
+  email?: string;
   role: UserRole | string;
   avatar?: string;
   phone: string;
   department: string;
   designation?: string;
   
+  // Real Presence & Location Sharing State
+  isOnline: boolean;
+  isSharingLocation: boolean;
+  lastSeenAt?: string;
+
   // Real GPS Coordinates (undefined when no real location broadcasted)
   latitude?: number;
   longitude?: number;

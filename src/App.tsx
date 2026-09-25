@@ -49,15 +49,19 @@ const MainLayout: React.FC = () => {
       case 'dashboard':
         return <DashboardView />;
       case 'live_tracking':
+        if (!isAdmin) return <DashboardView />;
         return <LiveFieldTrackingView />;
       case 'customer_control_center':
         return <CustomerControlCenterView />;
       case 'crm_leads':
-        return <CrmView defaultTab="LEADS" />;
+        if (!canAccessModule('crm_leads')) return <DashboardView />;
+        return <CrmView key="crm_leads" defaultTab="LEADS" />;
       case 'crm_customers':
-        return <CrmView defaultTab="CUSTOMERS" />;
+        if (!canAccessModule('crm_customers')) return <DashboardView />;
+        return <CrmView key="crm_customers" defaultTab="CUSTOMERS" />;
       case 'crm_quotations':
-        return <CrmView defaultTab="QUOTATIONS" />;
+        if (!canAccessModule('crm_quotations')) return <DashboardView />;
+        return <CrmView key="crm_quotations" defaultTab="QUOTATIONS" />;
       case 'projects_all':
       case 'projects_stage_filtered':
         return <ProjectsView />;

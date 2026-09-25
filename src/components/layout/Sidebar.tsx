@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp, AppView } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -46,6 +46,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [reportsOpen, setReportsOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(true);
+
+  const isCrmActive = ['crm_leads', 'crm_customers', 'crm_quotations'].includes(activeView);
+
+  // Keep CRM menu open if any of its children is active
+  useEffect(() => {
+    if (isCrmActive) {
+      setCrmOpen(true);
+    }
+  }, [isCrmActive, activeView]);
 
   const navigateTo = (view: AppView, stageKey?: string) => {
     if (stageKey) {
@@ -151,30 +160,55 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
               {canAccessModule('crm') && (
                 <div className="space-y-1">
                   <div
-                    onClick={() => setCrmOpen(!crmOpen)}
+                    onClick={() => {
+                      navigateTo('crm_leads');
+                      setCrmOpen(true);
+                    }}
                     className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
                   >
-                    <span>CRM & Leads</span>
-                    {crmOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                    <span className={isCrmActive ? 'text-amber-600 font-bold' : ''}>CRM & Leads</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCrmOpen(prev => !prev);
+                      }}
+                      className="p-0.5 rounded text-current opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                      aria-label="Toggle CRM menu"
+                    >
+                      {crmOpen ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+                    </button>
                   </div>
 
                   {crmOpen && (
                     <div className="space-y-0.5">
                       <button
-                        onClick={() => navigateTo('crm_leads')}
-                        className={subNavItemClass(activeView === 'crm_leads')}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateTo('crm_leads');
+                        }}
+                        className={`${subNavItemClass(activeView === 'crm_leads')} cursor-pointer`}
                       >
                         <span>Leads Pipeline</span>
                       </button>
                       <button
-                        onClick={() => navigateTo('crm_customers')}
-                        className={subNavItemClass(activeView === 'crm_customers')}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateTo('crm_customers');
+                        }}
+                        className={`${subNavItemClass(activeView === 'crm_customers')} cursor-pointer`}
                       >
                         <span>Customer Directory</span>
                       </button>
                       <button
-                        onClick={() => navigateTo('crm_quotations')}
-                        className={subNavItemClass(activeView === 'crm_quotations')}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateTo('crm_quotations');
+                        }}
+                        className={`${subNavItemClass(activeView === 'crm_quotations')} cursor-pointer`}
                       >
                         <span>Quotations & Proposals</span>
                       </button>

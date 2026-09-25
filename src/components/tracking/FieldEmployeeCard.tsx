@@ -35,10 +35,10 @@ export const FieldEmployeeCard: React.FC<FieldEmployeeCardProps> = ({
     return () => clearInterval(interval);
   }, [employee.updatedAt]);
 
+  const isOnline = Boolean(employee.isOnline);
   const hasGps = employee.hasLocation && typeof employee.latitude === 'number' && typeof employee.longitude === 'number';
-  const isMoving = hasGps && employee.status === 'moving';
-  const isIdle = hasGps && employee.status === 'idle';
-  const isOffline = !hasGps || employee.status === 'offline';
+  const isMoving = isOnline && hasGps && employee.status === 'moving';
+  const isIdle = isOnline && hasGps && employee.status === 'idle';
 
   let statusConfig = {
     label: 'Online',
@@ -47,32 +47,32 @@ export const FieldEmployeeCard: React.FC<FieldEmployeeCardProps> = ({
     pulse: false
   };
 
-  if (!hasGps) {
-    statusConfig = {
-      label: 'Location unavailable',
-      badgeBg: 'bg-slate-100 text-slate-600 border-slate-200',
-      dotColor: 'bg-rose-500',
-      pulse: false
-    };
-  } else if (isMoving) {
-    statusConfig = {
-      label: 'Moving',
-      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      dotColor: 'bg-emerald-500',
-      pulse: true
-    };
-  } else if (isIdle) {
-    statusConfig = {
-      label: 'Idle / At Site',
-      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
-      dotColor: 'bg-amber-500',
-      pulse: false
-    };
-  } else if (isOffline) {
+  if (!isOnline) {
     statusConfig = {
       label: 'Offline',
       badgeBg: 'bg-slate-100 text-slate-600 border-slate-200',
       dotColor: 'bg-slate-400',
+      pulse: false
+    };
+  } else if (!hasGps) {
+    statusConfig = {
+      label: employee.isSharingLocation ? 'Online • GPS Locking' : 'Online • Standby',
+      badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
+      dotColor: 'bg-sky-500',
+      pulse: true
+    };
+  } else if (isMoving) {
+    statusConfig = {
+      label: employee.speed && employee.speed > 0 ? `Moving (${Math.round(employee.speed)} km/h)` : 'Moving',
+      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      dotColor: 'bg-emerald-500',
+      pulse: true
+    };
+  } else {
+    statusConfig = {
+      label: 'Idle / At Site',
+      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
+      dotColor: 'bg-amber-500',
       pulse: false
     };
   }

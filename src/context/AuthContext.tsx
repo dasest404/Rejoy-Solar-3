@@ -2,8 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/solar';
 import { storageService } from '../services/storage';
+import { liveLocationService } from '../services/liveLocationService';
 import {
   loginWithEmail,
+  loginWithGoogle,
   registerWithEmail,
   logoutUser,
   sendPasswordReset,
@@ -11,6 +13,7 @@ import {
   isFirebaseConfigured,
   getFirebaseErrorMessage
 } from '../services/firebase';
+import { firestoreService } from '../services/firestoreService';
 
 export interface RoleDefinition {
   role: UserRole;
@@ -332,6 +335,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isFirebaseReady: boolean;
   login: (email: string, pass: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (
     email: string,
     pass: string,
@@ -399,7 +403,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const defaultRole: UserRole = linkedEmp?.systemRole || linkedEmp?.assignedRole || demoAccount?.role || 'Admin';
+    const isBootstrappedAdmin = cleanUserEmail === 'dasest404@gmail.com';
+    const defaultRole: UserRole = isBootstrappedAdmin
+      ? 'Admin'
+      : linkedEmp?.systemRole || linkedEmp?.assignedRole || demoAccount?.role || 'Admin';
     const isFw = Boolean(
       linkedEmp?.isFieldWorker ??
       demoAccount?.isFieldWorker ??
@@ -415,18 +422,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     const profile: UserProfile = {
-      id: user.uid,
-      name: linkedEmp?.name || demoAccount?.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Solar User'),
+      id: linkedEmp?.id || user.uid,
+      employeeId: linkedEmp?.employeeCode || linkedEmp?.id,
+      name: isBootstrappedAdmin
+        ? 'Lead Administrator'
+        : linkedEmp?.name || demoAccount?.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Solar User'),
       email: user.email || '',
       role: defaultRole,
       phone: linkedEmp?.phone || user.phoneNumber || '+91 98250 11223',
-      department: linkedEmp?.department || demoAccount?.department || 'Administration',
-      designation: linkedEmp?.designation || demoAccount?.designation || (defaultRole as string),
+      department: isBootstrappedAdmin ? 'Administration' : (linkedEmp?.department || demoAccount?.department || 'Administration'),
+      designation: isBootstrappedAdmin ? 'Lead Admin & Owner' : (linkedEmp?.designation || demoAccount?.designation || (defaultRole as string)),
       isFieldWorker: isFw,
       assignedProjects: []
     };
 
     localStorage.setItem(storageKey, JSON.stringify(profile));
+    firestoreService.saveUserProfile(profile).catch(() => {});
     return profile;
   };
 
@@ -472,6 +483,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isFirebaseReady]);
 
+  // Automatic Presence Heartbeat for authenticated team members (every 25 seconds)
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'Customer') return;
+
+    // Send immediate initial presence heartbeat
+    liveLocationService.sendHeartbeat({
+      userId: currentUser.id,
+      employeeCode: currentUser.employeeId,
+      name: currentUser.name,
+      role: currentUser.role,
+      isSharingLocation: false
+    });
+
+    const timer = setInterval(() => {
+      liveLocationService.sendHeartbeat({
+        userId: currentUser.id,
+        employeeCode: currentUser.employeeId,
+        name: currentUser.name,
+        role: currentUser.role,
+        isSharingLocation: false
+      });
+    }, 25000);
+
+    const handleBeforeUnload = () => {
+      liveLocationService.sendOffline(currentUser.id);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [currentUser?.id, currentUser?.role]);
+
   // Persist active user profile changes
   const saveUserProfile = (profile: UserProfile) => {
     setCurrentUser(profile);
@@ -479,6 +524,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem(USER_PROFILE_STORAGE_KEY + profile.id, JSON.stringify(profile));
     }
     localStorage.setItem(OFFLINE_SESSION_STORAGE_KEY, JSON.stringify(profile));
+    firestoreService.saveUserProfile(profile).catch((err) => {
+      console.warn('Could not sync user profile to Firestore:', err);
+    });
+  };
+
+  const loginWithGoogleAuth = async (): Promise<void> => {
+    setLoading(true);
+    try {
+      const user = await loginWithGoogle();
+      setFirebaseUser(user);
+      const profile = resolveProfileForUser(user);
+      saveUserProfile(profile);
+    } catch (err: any) {
+      throw new Error(getFirebaseErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const login = async (email: string, pass: string): Promise<void> => {
@@ -545,7 +607,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       const authenticatedProfile: UserProfile = {
-        id: linkedEmp?.authUid || demoAccount?.email || ('usr-user-' + Date.now()),
+        id: linkedEmp?.id || linkedEmp?.authUid || demoAccount?.email || ('usr-user-' + Date.now()),
+        employeeId: linkedEmp?.employeeCode || linkedEmp?.id,
         name: linkedEmp?.name || demoAccount?.name || email.split('@')[0] || 'Solar Team Member',
         email: cleanEmail,
         role,
@@ -624,6 +687,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async (): Promise<void> => {
     setLoading(true);
     try {
+      if (currentUser?.id) {
+        liveLocationService.sendOffline(currentUser.id).catch(() => {});
+      }
       if (isFirebaseReady) {
         try {
           await logoutUser();
@@ -733,12 +799,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       case 'live_tracking':
       case 'field_tracking':
-        return isAdmin || isProjectManager || currentRole === 'Service Manager' || isFieldStaff;
+        return isAdmin;
       case 'crm':
+      case 'crm_leads':
       case 'leads':
-        return hasPermission('crm.leads.view') || ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);
+      case 'crm_customers':
+      case 'customers':
+      case 'crm_quotations':
       case 'quotations':
-        return hasPermission('crm.quotations.create') || ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole);
+        return (
+          hasPermission('crm.leads.view') ||
+          hasPermission('crm.quotations.create') ||
+          hasPermission('crm.quotations.approve') ||
+          ['Sales Manager', 'Sales Executive', 'Project Manager'].includes(currentRole)
+        );
       case 'sales_purchase':
       case 'sales':
       case 'purchase':
@@ -746,7 +820,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'bom':
       case 'vendors':
         return hasPermission('inventory.view') || ['Admin', 'Sales Manager', 'Project Manager', 'Accountant'].includes(currentRole);
-      case 'customers':
       case 'projects':
       case 'workflow':
         return hasPermission('projects.view') || !isCustomer;
@@ -786,6 +859,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: Boolean(currentUser),
         isFirebaseReady,
         login,
+        loginWithGoogle: loginWithGoogleAuth,
         register,
         logout,
         resetPassword,

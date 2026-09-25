@@ -59,7 +59,7 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
   ) => {
     const isMoving = employee.status === 'moving';
     const isIdle = employee.status === 'idle';
-    const isOffline = employee.status === 'offline';
+    const isOffline = !employee.isOnline || employee.status === 'offline';
 
     // Status beacon color
     let beaconBg = 'bg-emerald-500';
@@ -267,7 +267,7 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
         const marker = L.marker([site.coords.latitude, site.coords.longitude], {
           icon: createSiteIcon(site.name, site.customer)
         }).addTo(map);
-        siteMarkersRef.current.set(key, key as any);
+        siteMarkersRef.current.set(key, marker);
       }
     });
   }, [locations, createSiteIcon]);
@@ -301,10 +301,25 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
       const targetLat = emp.latitude!;
       const targetLng = emp.longitude!;
 
+      const popupHtml = `
+        <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a;">${emp.name}</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 1px;">${emp.role} ${emp.employeeCode ? `(${emp.employeeCode})` : ''}</div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0; font-size: 11px; display: flex; flex-direction: column; gap: 3px;">
+            <div><strong>Status:</strong> ${emp.isOnline ? '🟢 Online' : '⚫ Offline'} (${emp.status.toUpperCase()})</div>
+            ${emp.speed !== undefined && emp.speed > 0 ? `<div><strong>Speed:</strong> ${Math.round(emp.speed)} km/h</div>` : ''}
+            ${emp.batteryLevel !== undefined ? `<div><strong>Battery:</strong> ${emp.batteryLevel}%</div>` : ''}
+            ${emp.distanceToSiteKm !== undefined ? `<div><strong>Distance to Site:</strong> ${emp.distanceToSiteKm} km</div>` : ''}
+            <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">Updated: ${new Date(emp.updatedAt).toLocaleTimeString()}</div>
+          </div>
+        </div>
+      `;
+
       if (markersRef.current.has(emp.userId)) {
-        // Marker already exists: update icon and smoothly animate coordinates
+        // Marker already exists: update icon, popup and smoothly animate coordinates
         const marker = markersRef.current.get(emp.userId)!;
         marker.setIcon(createEmployeeIcon(emp, isSelected));
+        marker.setPopupContent(popupHtml);
         animateMarkerMovement(marker, targetLat, targetLng, emp.userId);
       } else {
         // Marker doesn't exist: create new marker
@@ -312,8 +327,11 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
           icon: createEmployeeIcon(emp, isSelected)
         }).addTo(map);
 
+        marker.bindPopup(popupHtml, { offset: [0, -10] });
+
         marker.on('click', () => {
           onSelectEmployee(emp);
+          marker.openPopup();
         });
 
         markersRef.current.set(emp.userId, marker);

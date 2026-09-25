@@ -1,16 +1,15 @@
-import { Employee, SolarProject } from '../types/solar';
 import { storageService } from './storage';
 import { pusherService } from './pusherService';
 import {
   LiveEmployeeLocation,
   WorkforceLiveStatus,
   ELIGIBLE_FIELD_ROLES,
-  LocationCoordinates,
-  LocationUpdatePayload
+  LocationUpdatePayload,
+  PresenceUpdatePayload,
+  PRESENCE_TIMEOUT_MS
 } from '../types/tracking';
 
 const REAL_LOCATIONS_STORAGE_KEY = 'solarpulse_real_employee_locations_v1';
-const STALE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes without GPS update marks worker offline
 
 // Haversine formula to calculate accurate distance between coordinates (in km)
 export function calculateDistanceKm(
@@ -55,23 +54,35 @@ export function formatRelativeTime(isoDate?: string): string {
 
 class LiveLocationService {
   private employeeLocations: Map<string, LiveEmployeeLocation> = new Map();
+  // Alias map to resolve by email, employeeCode, or authUid to the primary employee id
+  private alternateIdMap: Map<string, string> = new Map();
   private listeners: Set<(locations: LiveEmployeeLocation[]) => void> = new Set();
-  private unsubscribePusher: (() => void) | null = null;
+  private unsubscribeLocationPusher: (() => void) | null = null;
+  private unsubscribePresencePusher: (() => void) | null = null;
   private staleCheckTimer: any = null;
+  private isInitialFetched = false;
 
   constructor() {
     this.initializeFieldWorkers();
 
-    // Listen to real-time location stream from Pusher
-    this.unsubscribePusher = pusherService.onLocationUpdate((payload) => {
-      this.handleIncomingPusherLocation(payload);
+    // 1. Listen to real-time location stream from Pusher
+    this.unsubscribeLocationPusher = pusherService.onLocationUpdate((payload) => {
+      this.handleIncomingLocation(payload);
     });
 
-    // Periodic stale checker (updates status if GPS signal goes cold)
+    // 2. Listen to real-time presence stream from Pusher
+    this.unsubscribePresencePusher = pusherService.onPresenceUpdate((payload) => {
+      this.handleIncomingPresence(payload);
+    });
+
+    // 3. Periodic stale presence checker (marks offline if heartbeat expires)
     if (typeof window !== 'undefined') {
       this.staleCheckTimer = setInterval(() => {
         this.checkStaleLocations();
       }, 15000);
+
+      // Perform initial load from server
+      this.fetchServerLocations();
     }
   }
 
@@ -81,7 +92,7 @@ class LiveLocationService {
     const normalizedRole = role.toLowerCase().trim();
     const normalizedDept = (department || '').toLowerCase().trim();
 
-    // Disqualify office and non-field staff
+    // Disqualify customer and office-only roles
     if (
       normalizedRole.includes('customer') ||
       normalizedRole.includes('accountant') ||
@@ -111,11 +122,24 @@ class LiveLocationService {
     );
   }
 
+  /**
+   * Resolves any user identifier (emp-id, email, code, auth uid) to canonical employee ID
+   */
+  private resolveCanonicalId(rawId: string): string {
+    if (!rawId) return rawId;
+    if (this.employeeLocations.has(rawId)) return rawId;
+    const clean = rawId.trim().toLowerCase();
+    if (this.alternateIdMap.has(clean)) {
+      return this.alternateIdMap.get(clean)!;
+    }
+    return rawId;
+  }
+
   private initializeFieldWorkers() {
     const allEmployees = storageService.getEmployees();
     const allProjects = storageService.getProjects();
 
-    // Load any real persisted GPS fixes from previous sessions
+    // Load any cached locations from previous local session
     let savedLocations: Record<string, Partial<LiveEmployeeLocation>> = {};
     if (typeof window !== 'undefined') {
       try {
@@ -133,6 +157,18 @@ class LiveLocationService {
     );
 
     fieldWorkers.forEach((emp) => {
+      // Map alternate IDs for robust identification across devices & login types
+      this.alternateIdMap.set(emp.id.toLowerCase(), emp.id);
+      if (emp.employeeCode) {
+        this.alternateIdMap.set(emp.employeeCode.toLowerCase(), emp.id);
+      }
+      if (emp.email) {
+        this.alternateIdMap.set(emp.email.toLowerCase(), emp.id);
+      }
+      if (emp.authUid) {
+        this.alternateIdMap.set(emp.authUid.toLowerCase(), emp.id);
+      }
+
       // Find assigned solar project if available
       const assignedProject = allProjects.find(
         (p) =>
@@ -147,38 +183,43 @@ class LiveLocationService {
         typeof cached.latitude === 'number' &&
         typeof cached.longitude === 'number';
 
-      const now = Date.now();
-      const lastUpdatedMs = cached?.updatedAt ? new Date(cached.updatedAt).getTime() : 0;
-      const isRecent = now - lastUpdatedMs < STALE_TIMEOUT_MS;
+      const lastSeenMs = cached?.lastSeenAt ? new Date(cached.lastSeenAt).getTime() : 0;
+      const isOnline = Date.now() - lastSeenMs < PRESENCE_TIMEOUT_MS;
 
       const record: LiveEmployeeLocation = {
         userId: emp.id,
         employeeCode: emp.employeeCode,
         name: emp.name,
+        email: emp.email,
         role: emp.systemRole || emp.designation,
         avatar: emp.photoUrl,
         phone: emp.phone,
         department: emp.department,
         designation: emp.designation,
-        
-        // Coordinates: only set if real device GPS was reported
+
+        isOnline,
+        isSharingLocation: cached?.isSharingLocation ?? false,
+        lastSeenAt: cached?.lastSeenAt,
+
         latitude: hasRealCoordinates ? cached.latitude : undefined,
         longitude: hasRealCoordinates ? cached.longitude : undefined,
         hasLocation: Boolean(hasRealCoordinates),
-        
+
         accuracy: hasRealCoordinates ? cached.accuracy : undefined,
         heading: hasRealCoordinates ? cached.heading : undefined,
         speed: hasRealCoordinates ? cached.speed : undefined,
         updatedAt: cached?.updatedAt || new Date().toISOString(),
-        
-        status: !hasRealCoordinates
+
+        status: !isOnline
           ? 'offline'
-          : isRecent
-          ? ((cached.speed || 0) > 3 ? 'moving' : 'idle')
-          : 'offline',
+          : hasRealCoordinates
+          ? ((cached?.speed || 0) > 3 ? 'moving' : 'idle')
+          : 'online',
 
         batteryLevel: cached?.batteryLevel,
-        currentActivity: !hasRealCoordinates ? 'Location unavailable' : cached.currentActivity || 'Field Operations',
+        currentActivity: !hasRealCoordinates
+          ? (isOnline ? 'Online • Location Standby' : 'Location unavailable')
+          : cached?.currentActivity || 'Field Operations',
         lastLocationAddress: cached?.lastLocationAddress
       };
 
@@ -189,7 +230,6 @@ class LiveLocationService {
         record.assignedCustomerName = assignedProject.customerName;
         record.assignedSiteAddress = assignedProject.siteAddress || assignedProject.city;
 
-        // If site coordinates are present and worker has coordinates, calculate distance
         if (assignedProject.latitude && assignedProject.longitude) {
           record.assignedSiteCoordinates = {
             latitude: assignedProject.latitude,
@@ -210,11 +250,112 @@ class LiveLocationService {
     });
   }
 
-  private handleIncomingPusherLocation(payload: LocationUpdatePayload) {
-    const existing = this.employeeLocations.get(payload.userId);
-    const speed = payload.speed !== undefined ? payload.speed : 0;
-    const status: WorkforceLiveStatus = speed > 3 ? 'moving' : 'idle';
+  /**
+   * Admin Initial Load: Fetch latest known locations & presence from central server
+   */
+  async fetchServerLocations(): Promise<void> {
+    try {
+      const res = await fetch('/api/workforce/locations');
+      if (!res.ok) return;
 
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.locations)) return;
+
+      data.locations.forEach((srv: any) => {
+        if (!srv || !srv.userId) return;
+        const targetId = this.resolveCanonicalId(srv.userId);
+        const existing = this.employeeLocations.get(targetId);
+
+        const hasCoords = typeof srv.latitude === 'number' && typeof srv.longitude === 'number';
+        const now = Date.now();
+        const lastSeenMs = srv.lastSeenAt ? new Date(srv.lastSeenAt).getTime() : 0;
+        const isOnline = now - lastSeenMs < PRESENCE_TIMEOUT_MS;
+
+        if (existing) {
+          // Avoid race condition: do not overwrite if local state has a strictly newer update
+          const localUpdated = new Date(existing.updatedAt).getTime();
+          const serverUpdated = new Date(srv.updatedAt || srv.lastSeenAt || 0).getTime();
+
+          if (serverUpdated >= localUpdated || !existing.hasLocation) {
+            existing.isOnline = isOnline;
+            existing.isSharingLocation = srv.isSharingLocation ?? existing.isSharingLocation;
+            existing.lastSeenAt = srv.lastSeenAt || existing.lastSeenAt;
+
+            if (hasCoords) {
+              existing.latitude = srv.latitude;
+              existing.longitude = srv.longitude;
+              existing.hasLocation = true;
+              existing.accuracy = srv.accuracy;
+              existing.heading = srv.heading;
+              existing.speed = srv.speed;
+              existing.batteryLevel = srv.batteryLevel ?? existing.batteryLevel;
+              existing.currentActivity = srv.activity || existing.currentActivity;
+              existing.updatedAt = srv.updatedAt || existing.updatedAt;
+
+              if (existing.assignedSiteCoordinates) {
+                existing.distanceToSiteKm = calculateDistanceKm(
+                  srv.latitude,
+                  srv.longitude,
+                  existing.assignedSiteCoordinates.latitude,
+                  existing.assignedSiteCoordinates.longitude
+                );
+              }
+            }
+
+            existing.status = !isOnline
+              ? 'offline'
+              : existing.hasLocation
+              ? ((existing.speed || 0) > 3 ? 'moving' : 'idle')
+              : 'online';
+          }
+        } else {
+          // Add newly discovered field worker from server
+          const newRecord: LiveEmployeeLocation = {
+            userId: srv.userId,
+            employeeCode: srv.employeeCode,
+            name: srv.name || `Field Worker (${srv.userId.slice(0, 6)})`,
+            email: srv.email,
+            role: srv.role || 'Field Engineer',
+            phone: '+91 98250 00000',
+            department: 'Operations',
+            isOnline,
+            isSharingLocation: srv.isSharingLocation ?? true,
+            lastSeenAt: srv.lastSeenAt,
+            latitude: hasCoords ? srv.latitude : undefined,
+            longitude: hasCoords ? srv.longitude : undefined,
+            hasLocation: hasCoords,
+            accuracy: srv.accuracy,
+            heading: srv.heading,
+            speed: srv.speed,
+            batteryLevel: srv.batteryLevel,
+            currentActivity: srv.activity || (isOnline ? 'Active' : 'Offline'),
+            updatedAt: srv.updatedAt || new Date().toISOString(),
+            status: !isOnline ? 'offline' : hasCoords ? ((srv.speed || 0) > 3 ? 'moving' : 'idle') : 'online'
+          };
+          this.employeeLocations.set(srv.userId, newRecord);
+          this.alternateIdMap.set(srv.userId.toLowerCase(), srv.userId);
+        }
+      });
+
+      this.isInitialFetched = true;
+      this.notifyListeners();
+    } catch (err) {
+      console.warn('[Workforce] Could not fetch server locations:', err);
+    }
+  }
+
+  /**
+   * Process Real-Time GPS Location updates from Pusher / SSE
+   */
+  private handleIncomingLocation(payload: LocationUpdatePayload) {
+    if (!payload || !payload.userId || typeof payload.latitude !== 'number' || typeof payload.longitude !== 'number') {
+      return;
+    }
+
+    const canonicalId = this.resolveCanonicalId(payload.userId);
+    const existing = this.employeeLocations.get(canonicalId);
+    const speed = payload.speed !== undefined ? payload.speed : 0;
+    const isMoving = speed > 3;
     const timestamp = payload.timestamp || new Date().toISOString();
 
     let updated: LiveEmployeeLocation;
@@ -225,16 +366,18 @@ class LiveLocationService {
         latitude: payload.latitude,
         longitude: payload.longitude,
         hasLocation: true,
+        isOnline: true,
+        isSharingLocation: true,
         accuracy: payload.accuracy,
         heading: payload.heading,
         speed: payload.speed,
         batteryLevel: payload.batteryLevel ?? existing.batteryLevel,
-        currentActivity: payload.activity || (speed > 3 ? 'In Transit / Moving' : 'On Site / Active'),
+        currentActivity: payload.activity || (isMoving ? 'In Transit / Moving' : 'On Site / Active'),
         updatedAt: timestamp,
-        status
+        lastSeenAt: timestamp,
+        status: isMoving ? 'moving' : 'idle'
       };
 
-      // Recalculate distance to assigned site if present
       if (updated.assignedSiteCoordinates) {
         updated.distanceToSiteKm = calculateDistanceKm(
           payload.latitude,
@@ -243,14 +386,17 @@ class LiveLocationService {
           updated.assignedSiteCoordinates.longitude
         );
       }
+      this.employeeLocations.set(canonicalId, updated);
     } else {
-      // Worker not in preloaded list, create new entry
+      // Dynamic worker entry if not previously configured
       updated = {
         userId: payload.userId,
         name: `Field Worker (${payload.userId.slice(0, 6)})`,
         role: 'Technician',
         phone: '+91 98250 00000',
         department: 'Operations',
+        isOnline: true,
+        isSharingLocation: true,
         latitude: payload.latitude,
         longitude: payload.longitude,
         hasLocation: true,
@@ -258,25 +404,64 @@ class LiveLocationService {
         heading: payload.heading,
         speed: payload.speed,
         batteryLevel: payload.batteryLevel,
-        currentActivity: payload.activity || (speed > 3 ? 'In Transit' : 'Active'),
+        currentActivity: payload.activity || (isMoving ? 'In Transit' : 'Active'),
         updatedAt: timestamp,
-        status
+        lastSeenAt: timestamp,
+        status: isMoving ? 'moving' : 'idle'
       };
+      this.employeeLocations.set(payload.userId, updated);
+      this.alternateIdMap.set(payload.userId.toLowerCase(), payload.userId);
     }
 
-    this.employeeLocations.set(payload.userId, updated);
-    this.persistRealLocation(payload.userId, updated);
+    this.persistRealLocation(updated.userId, updated);
     this.notifyListeners();
   }
 
+  /**
+   * Process Real-Time Presence updates from Pusher / SSE
+   */
+  private handleIncomingPresence(payload: PresenceUpdatePayload) {
+    if (!payload || !payload.userId) return;
+
+    const canonicalId = this.resolveCanonicalId(payload.userId);
+    const existing = this.employeeLocations.get(canonicalId);
+    if (!existing) return;
+
+    existing.isOnline = payload.isOnline;
+    existing.lastSeenAt = payload.lastSeenAt || new Date().toISOString();
+    if (typeof payload.isSharingLocation === 'boolean') {
+      existing.isSharingLocation = payload.isSharingLocation;
+    }
+
+    // Determine status independently from GPS
+    if (!payload.isOnline) {
+      existing.status = 'offline';
+      existing.currentActivity = 'Offline';
+    } else if (existing.hasLocation) {
+      existing.status = (existing.speed && existing.speed > 3) ? 'moving' : 'idle';
+    } else {
+      existing.status = 'online';
+      existing.currentActivity = existing.isSharingLocation
+        ? 'Online • Awaiting GPS fix'
+        : 'Online • Standby';
+    }
+
+    this.notifyListeners();
+  }
+
+  /**
+   * Periodic stale presence check (strictly checks presence timeout, NOT location loss)
+   */
   private checkStaleLocations() {
     let hasChanges = false;
     const now = Date.now();
 
-    this.employeeLocations.forEach((emp, id) => {
-      if (emp.hasLocation && emp.status !== 'offline') {
-        const lastUpdatedMs = new Date(emp.updatedAt).getTime();
-        if (now - lastUpdatedMs > STALE_TIMEOUT_MS) {
+    this.employeeLocations.forEach((emp) => {
+      if (emp.isOnline) {
+        const lastSeenMs = emp.lastSeenAt ? new Date(emp.lastSeenAt).getTime() : 0;
+        if (now - lastSeenMs > PRESENCE_TIMEOUT_MS) {
+          emp.isOnline = false;
+          emp.isSharingLocation = false;
           emp.status = 'offline';
           emp.currentActivity = 'Signal stale (offline)';
           hasChanges = true;
@@ -303,6 +488,9 @@ class LiveLocationService {
         batteryLevel: loc.batteryLevel,
         currentActivity: loc.currentActivity,
         updatedAt: loc.updatedAt,
+        lastSeenAt: loc.lastSeenAt,
+        isOnline: loc.isOnline,
+        isSharingLocation: loc.isSharingLocation,
         status: loc.status
       };
       localStorage.setItem(REAL_LOCATIONS_STORAGE_KEY, JSON.stringify(data));
@@ -312,7 +500,7 @@ class LiveLocationService {
   }
 
   /**
-   * Called by the Field Worker device to broadcast real GPS coordinates
+   * Called by Field Worker device to broadcast real GPS coordinates
    */
   async updateEmployeeLocation(
     userId: string,
@@ -324,6 +512,9 @@ class LiveLocationService {
       heading?: number;
       batteryLevel?: number;
       activity?: string;
+      employeeCode?: string;
+      name?: string;
+      role?: string;
     }
   ): Promise<boolean> {
     const payload: LocationUpdatePayload = {
@@ -341,12 +532,33 @@ class LiveLocationService {
     return pusherService.broadcastLocation(payload);
   }
 
+  /**
+   * Called to send heartbeat to backend
+   */
+  async sendHeartbeat(data: {
+    userId: string;
+    employeeCode?: string;
+    name?: string;
+    role?: string;
+    isSharingLocation: boolean;
+  }): Promise<boolean> {
+    return pusherService.sendHeartbeat(data);
+  }
+
+  /**
+   * Called when stopping location sharing or logging out
+   */
+  async sendOffline(userId: string): Promise<boolean> {
+    return pusherService.sendOffline(userId);
+  }
+
   getLocations(): LiveEmployeeLocation[] {
     return Array.from(this.employeeLocations.values());
   }
 
   getEmployeeLocation(userId: string): LiveEmployeeLocation | undefined {
-    return this.employeeLocations.get(userId);
+    const canonical = this.resolveCanonicalId(userId);
+    return this.employeeLocations.get(canonical);
   }
 
   subscribe(callback: (locations: LiveEmployeeLocation[]) => void): () => void {
@@ -369,9 +581,13 @@ class LiveLocationService {
   }
 
   destroy() {
-    if (this.unsubscribePusher) {
-      this.unsubscribePusher();
-      this.unsubscribePusher = null;
+    if (this.unsubscribeLocationPusher) {
+      this.unsubscribeLocationPusher();
+      this.unsubscribeLocationPusher = null;
+    }
+    if (this.unsubscribePresencePusher) {
+      this.unsubscribePresencePusher();
+      this.unsubscribePresencePusher = null;
     }
     if (this.staleCheckTimer) {
       clearInterval(this.staleCheckTimer);

@@ -131,14 +131,39 @@ const getInitialViewFromPath = (): { view: AppView; filterKey: string | null; se
   if (path === '/live-tracking' || path === '/field-tracking' || path.endsWith('/live-tracking') || path.endsWith('/field-tracking')) {
     return { view: 'live_tracking', filterKey: null };
   }
-  if (path === '/customers' || path.endsWith('/customers')) {
+  if (
+    path === '/customers' ||
+    path === '/crm/customers' ||
+    path === '/crm-customers' ||
+    path.endsWith('/customers') ||
+    path.endsWith('/crm/customers') ||
+    path.endsWith('/crm-customers')
+  ) {
     return { view: 'crm_customers', filterKey: null };
   }
-  if (path === '/crm' || path === '/leads' || path.endsWith('/leads')) {
-    return { view: 'crm_leads', filterKey: null };
-  }
-  if (path === '/quotations' || path.endsWith('/quotations')) {
+  if (
+    path === '/quotations' ||
+    path === '/crm/quotations' ||
+    path === '/crm-quotations' ||
+    path === '/proposals' ||
+    path.endsWith('/quotations') ||
+    path.endsWith('/crm/quotations') ||
+    path.endsWith('/crm-quotations') ||
+    path.endsWith('/proposals')
+  ) {
     return { view: 'crm_quotations', filterKey: null };
+  }
+  if (
+    path === '/crm' ||
+    path === '/leads' ||
+    path === '/crm/leads' ||
+    path === '/crm-leads' ||
+    path.endsWith('/leads') ||
+    path.endsWith('/crm/leads') ||
+    path.endsWith('/crm-leads') ||
+    path.endsWith('/crm')
+  ) {
+    return { view: 'crm_leads', filterKey: null };
   }
   if (path === '/projects' || path.endsWith('/projects')) {
     return { view: 'projects_all', filterKey: null };

@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { liveLocationService } from '../../services/liveLocationService';
 import {
-  MapPin,
   Navigation,
   AlertCircle,
   CheckCircle2,
   Pause,
-  Play
+  Play,
+  Compass,
+  Battery
 } from 'lucide-react';
 
 export const FieldLocationSharer: React.FC = () => {
@@ -15,22 +16,36 @@ export const FieldLocationSharer: React.FC = () => {
   const [isSharing, setIsSharing] = useState(false);
   const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied' | 'unsupported'>('prompt');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lastCoords, setLastCoords] = useState<{ lat: number; lng: number; accuracy: number; speed: number } | null>(null);
+  const [lastCoords, setLastCoords] = useState<{ lat: number; lng: number; accuracy: number; speed: number; time: string } | null>(null);
+  const [batteryPct, setBatteryPct] = useState<number | undefined>(undefined);
 
   const watchIdRef = useRef<number | null>(null);
 
-  // Check browser geolocation support
+  // Check browser geolocation & battery support
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setPermissionState('unsupported');
     }
+
+    // Try reading device battery level if supported
+    if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
+      (navigator as any).getBattery?.().then((bat: any) => {
+        if (bat) {
+          setBatteryPct(Math.round(bat.level * 100));
+          bat.addEventListener('levelchange', () => {
+            setBatteryPct(Math.round(bat.level * 100));
+          });
+        }
+      }).catch(() => {});
+    }
   }, []);
 
-  // Stop watching when unmounting
+  // Stop watching and notify when unmounting
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
       }
     };
   }, []);
@@ -46,44 +61,69 @@ export const FieldLocationSharer: React.FC = () => {
     }
 
     setErrorMessage(null);
+    setIsSharing(true);
+
+    // Immediately send presence with isSharingLocation = true
+    liveLocationService.sendHeartbeat({
+      userId: currentUser.id,
+      employeeCode: currentUser.employeeId,
+      name: currentUser.name,
+      role: currentUser.role,
+      isSharingLocation: true
+    });
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         setPermissionState('granted');
-        setIsSharing(true);
+        setErrorMessage(null);
 
         const { latitude, longitude, accuracy, speed, heading } = position.coords;
         setLastCoords({
           lat: parseFloat(latitude.toFixed(5)),
           lng: parseFloat(longitude.toFixed(5)),
           accuracy: Math.round(accuracy),
-          speed: speed ? Math.round(speed * 3.6) : 0
+          speed: speed ? Math.round(speed * 3.6) : 0,
+          time: new Date().toLocaleTimeString()
         });
 
-        // Broadcast to liveLocationService
+        // Broadcast real GPS fix to liveLocationService (backed by Pusher & backend)
         liveLocationService.updateEmployeeLocation(currentUser.id, {
           latitude,
           longitude,
           accuracy,
-          speed: speed || undefined,
-          heading: heading || undefined
+          speed: speed ? Math.round(speed * 3.6) : undefined,
+          heading: heading !== null && !isNaN(heading) ? heading : undefined,
+          batteryLevel: batteryPct,
+          employeeCode: currentUser.employeeId,
+          name: currentUser.name,
+          role: currentUser.role
         });
       },
       (error) => {
-        setIsSharing(false);
+        // Handle GPS errors gracefully without marking employee offline
         if (error.code === error.PERMISSION_DENIED) {
           setPermissionState('denied');
-          setErrorMessage('Location access was denied. Please allow location permissions in your browser.');
+          setIsSharing(false);
+          setErrorMessage('Location permission denied. Please enable GPS in browser site settings.');
+          liveLocationService.sendHeartbeat({
+            userId: currentUser.id,
+            employeeCode: currentUser.employeeId,
+            name: currentUser.name,
+            role: currentUser.role,
+            isSharingLocation: false
+          });
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          setErrorMessage('GPS position is currently unavailable. Waiting for device fix...');
-        } else {
-          setErrorMessage('GPS timeout occurred while acquiring location.');
+          // Keep sharing state active: device is acquiring satellite lock
+          setErrorMessage('Acquiring GPS fix... (Device is searching for satellite signal)');
+        } else if (error.code === error.TIMEOUT) {
+          // Timeout is temporary; continue watching
+          setErrorMessage('GPS signal weak; retrying satellite lock...');
         }
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 4000
+        timeout: 12000,
+        maximumAge: 5000
       }
     );
   };
@@ -94,6 +134,16 @@ export const FieldLocationSharer: React.FC = () => {
       watchIdRef.current = null;
     }
     setIsSharing(false);
+    setErrorMessage(null);
+
+    // Update presence with location sharing paused
+    liveLocationService.sendHeartbeat({
+      userId: currentUser.id,
+      employeeCode: currentUser.employeeId,
+      name: currentUser.name,
+      role: currentUser.role,
+      isSharingLocation: false
+    });
   };
 
   return (
@@ -113,12 +163,12 @@ export const FieldLocationSharer: React.FC = () => {
           </div>
           <p className="text-[11px] text-slate-500 mt-0.5">
             {isSharing && lastCoords
-              ? `Transmitting real-time GPS coordinates (${lastCoords.lat}°, ${lastCoords.lng}°) ±${lastCoords.accuracy}m`
-              : 'Broadcast your current location so supervisors can track dispatch status & site arrival.'}
+              ? `Transmitting real-time GPS coordinates (${lastCoords.lat}°, ${lastCoords.lng}°) ±${lastCoords.accuracy}m at ${lastCoords.time}`
+              : 'Broadcast your current GPS location to the central Admin dispatch map.'}
           </p>
           {errorMessage && (
-            <p className="text-[11px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <p className="text-[11px] text-amber-700 font-semibold mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
               {errorMessage}
             </p>
           )}
@@ -129,7 +179,7 @@ export const FieldLocationSharer: React.FC = () => {
         {isSharing ? (
           <button
             onClick={stopSharing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-2xs cursor-pointer"
           >
             <Pause className="w-3.5 h-3.5 text-amber-600" />
             <span>Pause Sharing</span>
@@ -137,7 +187,7 @@ export const FieldLocationSharer: React.FC = () => {
         ) : (
           <button
             onClick={startSharing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs cursor-pointer"
           >
             <Play className="w-3.5 h-3.5" />
             <span>Share My Location</span>

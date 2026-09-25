@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
@@ -37,10 +37,39 @@ import {
 export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATIONS' }> = ({
   defaultTab = 'LEADS'
 }) => {
-  const { openCustomerControlCenter, openWhatsAppModal, openImportExportModal, showToast, triggerRefresh, refreshTrigger } = useApp();
+  const {
+    activeView,
+    openCustomerControlCenter,
+    openWhatsAppModal,
+    openImportExportModal,
+    showToast,
+    triggerRefresh,
+    refreshTrigger,
+    setActiveView
+  } = useApp();
   const { currentUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'LEADS' | 'CUSTOMERS' | 'QUOTATIONS'>(defaultTab);
+  const getInitialTab = (): 'LEADS' | 'CUSTOMERS' | 'QUOTATIONS' => {
+    if (activeView === 'crm_customers') return 'CUSTOMERS';
+    if (activeView === 'crm_quotations') return 'QUOTATIONS';
+    if (activeView === 'crm_leads') return 'LEADS';
+    return defaultTab || 'LEADS';
+  };
+
+  const [activeTab, setActiveTab] = useState<'LEADS' | 'CUSTOMERS' | 'QUOTATIONS'>(getInitialTab);
+
+  // Synchronize internal activeTab when defaultTab prop or activeView changes
+  useEffect(() => {
+    if (activeView === 'crm_customers') {
+      setActiveTab('CUSTOMERS');
+    } else if (activeView === 'crm_quotations') {
+      setActiveTab('QUOTATIONS');
+    } else if (activeView === 'crm_leads') {
+      setActiveTab('LEADS');
+    } else if (defaultTab && activeTab !== defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [activeView, defaultTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [leadViewMode, setLeadViewMode] = useState<'KANBAN' | 'LIST'>('KANBAN');
 
@@ -343,24 +372,36 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
         {/* Tab Buttons */}
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
           <button
-            onClick={() => setActiveTab('LEADS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('LEADS');
+              setActiveView('crm_leads');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'LEADS' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Leads Pipeline ({leads.length})
           </button>
           <button
-            onClick={() => setActiveTab('CUSTOMERS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('CUSTOMERS');
+              setActiveView('crm_customers');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'CUSTOMERS' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Customers Directory ({customers.length})
           </button>
           <button
-            onClick={() => setActiveTab('QUOTATIONS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            type="button"
+            onClick={() => {
+              setActiveTab('QUOTATIONS');
+              setActiveView('crm_quotations');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'QUOTATIONS' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >

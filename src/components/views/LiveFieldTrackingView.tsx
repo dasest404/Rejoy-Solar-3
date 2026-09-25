@@ -11,22 +11,19 @@ import {
 import { LiveFieldMap } from '../tracking/LiveFieldMap';
 import { FieldEmployeeList } from '../tracking/FieldEmployeeList';
 import { FieldEmployeeDetailsModal } from '../tracking/FieldEmployeeDetailsModal';
-import { FieldLocationSharer } from '../tracking/FieldLocationSharer';
 import {
   Navigation,
   ArrowLeft,
   RefreshCw,
   Maximize2,
   Minimize2,
-  Radio,
-  Wifi,
-  WifiOff,
-  AlertCircle
+  ShieldAlert,
+  Radio
 } from 'lucide-react';
 
 export const LiveFieldTrackingView: React.FC = () => {
   const { setActiveView } = useApp();
-  const { currentUser, isFieldStaff } = useAuth();
+  const { isAdmin } = useAuth();
 
   const [locations, setLocations] = useState<LiveEmployeeLocation[]>(() =>
     liveLocationService.getLocations()
@@ -36,6 +33,7 @@ export const LiveFieldTrackingView: React.FC = () => {
   const [followSelected, setFollowSelected] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [pusherState, setPusherState] = useState<PusherConnectionState>(() =>
     pusherService.getConnectionState()
   );
@@ -48,6 +46,33 @@ export const LiveFieldTrackingView: React.FC = () => {
     assignment: 'ALL'
   });
 
+  // Strict role check: Workforce tracking map is exclusively accessible to Admin
+  if (!isAdmin) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-200 text-center shadow-xs">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mb-4 shadow-xs">
+          <ShieldAlert className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-black text-slate-900 mb-1">Access Restricted</h2>
+        <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
+          The Central Live Field Workforce Tracking Console is restricted to Administrator personnel.
+        </p>
+        <button
+          onClick={() => setActiveView('dashboard')}
+          className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Return to Dashboard</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Initial load: Fetch server locations immediately
+  useEffect(() => {
+    liveLocationService.fetchServerLocations();
+  }, []);
+
   // Listen to Pusher connection state changes
   useEffect(() => {
     const unsubConnection = pusherService.onConnectionChange((state) => {
@@ -58,7 +83,7 @@ export const LiveFieldTrackingView: React.FC = () => {
     };
   }, []);
 
-  // Subscribe to real-time location stream
+  // Subscribe to real-time location & presence stream
   useEffect(() => {
     const unsubscribeLocations = liveLocationService.subscribe((updatedLocations) => {
       setLocations(updatedLocations);
@@ -99,13 +124,19 @@ export const LiveFieldTrackingView: React.FC = () => {
     setIsFullscreen((prev) => !prev);
   }, []);
 
-  // Live counters calculated strictly from actual tracking data
+  const handleRefreshServer = async () => {
+    setIsRefreshing(true);
+    await liveLocationService.fetchServerLocations();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  // Live counters: Online reflects presence heartbeat; moving/idle reflect GPS speed
   const stats = useMemo(() => {
     const total = locations.length;
-    const online = locations.filter((l) => l.hasLocation && (l.status === 'online' || l.status === 'moving')).length;
-    const moving = locations.filter((l) => l.hasLocation && l.status === 'moving').length;
-    const idle = locations.filter((l) => l.hasLocation && l.status === 'idle').length;
-    const offline = locations.filter((l) => !l.hasLocation || l.status === 'offline').length;
+    const online = locations.filter((l) => l.isOnline).length;
+    const moving = locations.filter((l) => l.isOnline && l.status === 'moving').length;
+    const idle = locations.filter((l) => l.isOnline && l.status === 'idle').length;
+    const offline = locations.filter((l) => !l.isOnline).length;
     return { total, online, moving, idle, offline };
   }, [locations]);
 
@@ -131,8 +162,8 @@ export const LiveFieldTrackingView: React.FC = () => {
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 text-rose-800 border border-rose-300 text-xs font-bold shadow-2xs">
         <span className="w-2 h-2 rounded-full bg-rose-500" />
-        <span>🔴 CONNECTION LOST</span>
-        <span className="text-rose-700 font-normal hidden sm:inline">• Reconnecting...</span>
+        <span>🔴 LOCAL STREAM</span>
+        <span className="text-rose-700 font-normal hidden sm:inline">• Server Fallback</span>
       </div>
     );
   };
@@ -148,7 +179,7 @@ export const LiveFieldTrackingView: React.FC = () => {
                 if (isFullscreen) setIsFullscreen(false);
                 else setActiveView('dashboard');
               }}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Admin Dashboard</span>
@@ -170,7 +201,7 @@ export const LiveFieldTrackingView: React.FC = () => {
           </p>
         </div>
 
-        {/* Live Counters Banner */}
+        {/* Live Counters Banner & Controls */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -193,17 +224,22 @@ export const LiveFieldTrackingView: React.FC = () => {
           </div>
 
           <button
+            onClick={handleRefreshServer}
+            title="Refresh Server Telemetry"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 bg-white shadow-2xs cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-500' : ''}`} />
+          </button>
+
+          <button
             onClick={handleToggleFullscreen}
             title={isFullscreen ? 'Exit Full Screen' : 'Full Screen Map'}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 bg-white shadow-2xs"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 bg-white shadow-2xs cursor-pointer"
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
       </div>
-
-      {/* Field Worker Location Sharer for Authenticated Field Staff */}
-      {isFieldStaff && <FieldLocationSharer />}
 
       {/* Main Interactive Map & Employee Sidebar Workspace */}
       <div

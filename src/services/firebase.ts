@@ -10,25 +10,41 @@ import {
   onAuthStateChanged,
   User,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
+import {
+  getFirestore,
+  Firestore,
+  doc,
+  getDocFromServer,
+  collection,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  where
+} from 'firebase/firestore';
+import rawFirebaseConfig from '../../firebase-applet-config.json';
 
 /**
  * Firebase Web SDK Configuration
- * Populated from Vite environment variables (VITE_FIREBASE_*)
- * with fallback to runtime window.__FIREBASE_CONFIG__ for zero-recompile Hostinger deployment.
- * Safe for client-side inclusion (Firebase API keys are public identifiers, not secret keys).
+ * Prioritizes firebase-applet-config.json with fallback to environment variables
  */
 const runtimeCfg = (typeof window !== 'undefined' && (window as any).__FIREBASE_CONFIG__) || {};
 
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || runtimeCfg.apiKey || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || runtimeCfg.authDomain || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || runtimeCfg.projectId || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || runtimeCfg.storageBucket || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || runtimeCfg.messagingSenderId || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || runtimeCfg.appId || '',
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || runtimeCfg.measurementId || ''
+  apiKey: rawFirebaseConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY || runtimeCfg.apiKey || '',
+  authDomain: rawFirebaseConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || runtimeCfg.authDomain || '',
+  projectId: rawFirebaseConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID || runtimeCfg.projectId || '',
+  storageBucket: rawFirebaseConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || runtimeCfg.storageBucket || '',
+  messagingSenderId: rawFirebaseConfig.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || runtimeCfg.messagingSenderId || '',
+  appId: rawFirebaseConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID || runtimeCfg.appId || '',
+  measurementId: rawFirebaseConfig.measurementId || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || runtimeCfg.measurementId || '',
+  firestoreDatabaseId: rawFirebaseConfig.firestoreDatabaseId || import.meta.env.VITE_FIREBASE_DATABASE_ID || ''
 };
 
 export interface FirebaseConfigStatus {
@@ -39,13 +55,9 @@ export interface FirebaseConfigStatus {
 
 export const getFirebaseConfigStatus = (): FirebaseConfigStatus => {
   const envMap: Record<string, string | undefined> = {
-    VITE_FIREBASE_API_KEY: firebaseConfig.apiKey,
-    VITE_FIREBASE_AUTH_DOMAIN: firebaseConfig.authDomain,
-    VITE_FIREBASE_PROJECT_ID: firebaseConfig.projectId,
-    VITE_FIREBASE_STORAGE_BUCKET: firebaseConfig.storageBucket,
-    VITE_FIREBASE_MESSAGING_SENDER_ID: firebaseConfig.messagingSenderId,
-    VITE_FIREBASE_APP_ID: firebaseConfig.appId,
-    VITE_FIREBASE_MEASUREMENT_ID: firebaseConfig.measurementId
+    apiKey: firebaseConfig.apiKey,
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId
   };
 
   const missingVariables: string[] = [];
@@ -59,13 +71,7 @@ export const getFirebaseConfigStatus = (): FirebaseConfigStatus => {
     }
   }
 
-  // Required keys for functional Web SDK auth
-  const requiredKeys = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_PROJECT_ID'
-  ];
-  const hasRequired = requiredKeys.every(k => configuredVariables.includes(k));
+  const hasRequired = configuredVariables.includes('apiKey') && configuredVariables.includes('projectId');
 
   return {
     isConfigured: hasRequired && missingVariables.length === 0,
@@ -78,23 +84,82 @@ export const isFirebaseConfigured = (): boolean => {
   return getFirebaseConfigStatus().isConfigured;
 };
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
+// Initialize App
+const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-if (isFirebaseConfigured()) {
-  try {
-    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    // Ensure persistent login across browser sessions & refreshes
-    setPersistence(auth, browserLocalPersistence).catch((err) => {
-      console.warn('Could not set browserLocalPersistence:', err);
-    });
-  } catch (error) {
-    console.error('Error initializing Firebase App/Auth:', error);
-  }
+// Initialize Firestore
+/* CRITICAL: The app will break without this line */
+export const db: Firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Auth
+export const auth: Auth = getAuth(app);
+
+// Configure persistent auth
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence).catch((err) => {
+    console.warn('Could not set browserLocalPersistence:', err);
+  });
 }
 
-export { app, auth };
+// Validate Connection to Firestore on startup
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('Please check your Firebase configuration.');
+    }
+  }
+}
+testConnection();
+
+// Standardized Operation Types & Error Reporting
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
+      tenantId: auth?.currentUser?.tenantId,
+      providerInfo: auth?.currentUser?.providerData?.map((provider) => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 /**
  * User-friendly error message resolver for Firebase Auth error codes
@@ -127,11 +192,23 @@ export function getFirebaseErrorMessage(error: any): string {
 }
 
 export async function loginWithEmail(email: string, pass: string): Promise<User> {
-  if (!auth) {
-    throw new Error('Firebase Auth is not initialized. Please verify your Firebase configuration in .env.');
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return credential.user;
+  } catch (error) {
+    throw error;
   }
-  const credential = await signInWithEmailAndPassword(auth, email.trim(), pass);
-  return credential.user;
+}
+
+export async function loginWithGoogle(): Promise<User> {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const credential = await signInWithPopup(auth, provider);
+    return credential.user;
+  } catch (error) {
+    throw error;
+  }
 }
 
 export async function registerWithEmail(
@@ -139,9 +216,6 @@ export async function registerWithEmail(
   pass: string,
   displayName: string
 ): Promise<User> {
-  if (!auth) {
-    throw new Error('Firebase Auth is not initialized. Please verify your Firebase configuration in .env.');
-  }
   const credential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
   if (displayName) {
     await updateProfile(credential.user, { displayName: displayName.trim() });
@@ -150,21 +224,15 @@ export async function registerWithEmail(
 }
 
 export async function logoutUser(): Promise<void> {
-  if (!auth) return;
   await signOut(auth);
 }
 
 export async function sendPasswordReset(email: string): Promise<void> {
-  if (!auth) {
-    throw new Error('Firebase Auth is not initialized.');
-  }
   await sendPasswordResetEmail(auth, email.trim());
 }
 
 export function subscribeToAuthState(callback: (user: User | null) => void): () => void {
-  if (!auth) {
-    callback(null);
-    return () => {};
-  }
   return onAuthStateChanged(auth, callback);
 }
+
+export { app };
