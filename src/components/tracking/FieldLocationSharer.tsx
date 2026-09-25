@@ -47,6 +47,7 @@ export const FieldLocationSharer: React.FC = () => {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      liveLocationService.setLocationSharingActive(false);
     };
   }, []);
 
@@ -62,12 +63,14 @@ export const FieldLocationSharer: React.FC = () => {
 
     setErrorMessage(null);
     setIsSharing(true);
+    liveLocationService.setLocationSharingActive(true);
 
     // Immediately send presence with isSharingLocation = true
     liveLocationService.sendHeartbeat({
       userId: currentUser.id,
       employeeCode: currentUser.employeeId,
       name: currentUser.name,
+      email: currentUser.email,
       role: currentUser.role,
       isSharingLocation: true
     });
@@ -104,11 +107,13 @@ export const FieldLocationSharer: React.FC = () => {
         if (error.code === error.PERMISSION_DENIED) {
           setPermissionState('denied');
           setIsSharing(false);
+          liveLocationService.setLocationSharingActive(false);
           setErrorMessage('Location permission denied. Please enable GPS in browser site settings.');
           liveLocationService.sendHeartbeat({
             userId: currentUser.id,
             employeeCode: currentUser.employeeId,
             name: currentUser.name,
+            email: currentUser.email,
             role: currentUser.role,
             isSharingLocation: false
           });
@@ -134,6 +139,7 @@ export const FieldLocationSharer: React.FC = () => {
       watchIdRef.current = null;
     }
     setIsSharing(false);
+    liveLocationService.setLocationSharingActive(false);
     setErrorMessage(null);
 
     // Update presence with location sharing paused
@@ -141,6 +147,7 @@ export const FieldLocationSharer: React.FC = () => {
       userId: currentUser.id,
       employeeCode: currentUser.employeeId,
       name: currentUser.name,
+      email: currentUser.email,
       role: currentUser.role,
       isSharingLocation: false
     });

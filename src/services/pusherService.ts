@@ -312,6 +312,7 @@ class PusherService {
     userId: string;
     employeeCode?: string;
     name?: string;
+    email?: string;
     role?: string;
     isSharingLocation: boolean;
   }): Promise<boolean> {
@@ -320,7 +321,8 @@ class PusherService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': data.userId
+          'x-user-id': data.userId,
+          'x-user-role': data.role || ''
         },
         body: JSON.stringify(data)
       });
@@ -334,15 +336,31 @@ class PusherService {
   /**
    * Transmit Offline Presence status to backend
    */
-  async sendOffline(userId: string): Promise<boolean> {
+  async sendOffline(userId: string, email?: string, employeeCode?: string): Promise<boolean> {
     try {
+      const payload = { userId, email, employeeCode };
+      const body = JSON.stringify(payload);
+
+      // If sendBeacon is available during window unload/pagehide, use it
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        try {
+          const blob = new Blob([body], { type: 'application/json' });
+          if (navigator.sendBeacon('/api/presence/offline', blob)) {
+            return true;
+          }
+        } catch {
+          // Fallback to fetch
+        }
+      }
+
       const res = await fetch('/api/presence/offline', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': userId
         },
-        body: JSON.stringify({ userId })
+        body,
+        keepalive: true
       });
       return res.ok;
     } catch (e) {

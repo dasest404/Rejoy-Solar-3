@@ -1,15 +1,18 @@
 [
   {
     "userId": "emp-3",
-    "role": "Field Engineer",
+    "employeeCode": "EMP003",
+    "name": "Rajesh Kumar",
+    "email": "survey@rejoysolar.com",
+    "role": "Site Survey Engineer",
     "latitude": 22.99,
     "longitude": 72.385,
     "speed": 25,
     "activity": "Approaching project site",
     "updatedAt": "2026-09-24T13:54:10.106Z",
-    "lastSeenAt": "2026-09-24T13:54:10.106Z",
+    "lastSeenAt": "2026-09-25T13:02:38.271Z",
     "isOnline": false,
-    "isSharingLocation": true,
+    "isSharingLocation": false,
     "hasLocation": true,
     "status": "offline"
   },
@@ -43,7 +46,7 @@
     "name": "Vikram Patel",
     "role": "Admin",
     "updatedAt": "2026-09-25T09:02:05.460Z",
-    "lastSeenAt": "2026-09-25T11:24:41.483Z",
+    "lastSeenAt": "2026-09-25T13:02:25.923Z",
     "isOnline": true,
     "isSharingLocation": false,
     "hasLocation": false,
@@ -60,9 +63,27 @@
     "activity": "In Transit / Moving",
     "updatedAt": "2026-09-25T11:24:14.783Z",
     "lastSeenAt": "2026-09-25T11:24:14.783Z",
-    "isOnline": true,
-    "isSharingLocation": true,
+    "isOnline": false,
+    "isSharingLocation": false,
     "hasLocation": true,
-    "status": "moving"
+    "status": "offline"
+  },
+  {
+    "userId": "emp-14",
+    "employeeCode": "EMP014",
+    "name": "Suresh Patel",
+    "role": "Civil Team",
+    "latitude": 12.9081255,
+    "longitude": 77.607651,
+    "accuracy": 3.996999979019165,
+    "speed": 0,
+    "batteryLevel": 100,
+    "activity": "On Site / Active",
+    "updatedAt": "2026-09-25T11:28:23.423Z",
+    "lastSeenAt": "2026-09-25T11:29:13.952Z",
+    "isOnline": false,
+    "isSharingLocation": false,
+    "hasLocation": true,
+    "status": "offline"
   }
 ]

@@ -317,6 +317,24 @@ async function startServer() {
     });
   });
 
+  // Find existing employee record by ID, email, or employeeCode
+  function findExistingWorkforceRecord(userId: string, email?: string, employeeCode?: string): WorkforceRecord | undefined {
+    if (userId && workforceState.has(userId)) return workforceState.get(userId);
+    const cleanEmail = email?.trim().toLowerCase();
+    const cleanCode = employeeCode?.trim().toLowerCase();
+    if (cleanEmail || cleanCode) {
+      for (const rec of workforceState.values()) {
+        if (cleanEmail && rec.email && rec.email.trim().toLowerCase() === cleanEmail) {
+          return rec;
+        }
+        if (cleanCode && rec.employeeCode && rec.employeeCode.trim().toLowerCase() === cleanCode) {
+          return rec;
+        }
+      }
+    }
+    return undefined;
+  }
+
   // Admin Initial Load: Fetch All Field Employees' Latest Known Locations & Presence
   app.get(['/api/workforce/locations', '/api/workforce/status', '/api/locations'], (req, res) => {
     if (isCustomerRequest(req)) {
@@ -327,18 +345,20 @@ async function startServer() {
     const now = Date.now();
     const records = Array.from(workforceState.values()).map((rec) => {
       const lastSeen = rec.lastSeenAt ? new Date(rec.lastSeenAt).getTime() : 0;
-      const isOnline = now - lastSeen < PRESENCE_TIMEOUT_MS;
+      const isOnline = Boolean(rec.isOnline) && (now - lastSeen < PRESENCE_TIMEOUT_MS);
       return {
         ...rec,
         isOnline,
-        status: !isOnline ? 'offline' : rec.hasLocation ? (rec.speed && rec.speed > 3 ? 'moving' : 'idle') : 'online'
+        status: !isOnline ? 'offline' : rec.status === 'moving' ? 'moving' : rec.hasLocation ? (rec.speed && rec.speed > 3 ? 'moving' : 'idle') : 'online'
       };
     });
 
     res.json({
       success: true,
       count: records.length,
-      locations: records
+      locations: records,
+      workforce: records,
+      users: records
     });
   });
 
@@ -373,7 +393,7 @@ async function startServer() {
       const { userId, employeeCode, name, email, role, isSharingLocation } = req.body || {};
       const callerUserId = (req.headers['x-user-id'] as string) || userId;
 
-      if (!callerUserId) {
+      if (!callerUserId && !email && !employeeCode) {
         res.status(400).json({ success: false, error: 'Missing userId in heartbeat payload.' });
         return;
       }
@@ -383,12 +403,13 @@ async function startServer() {
         return;
       }
 
-      const id = String(callerUserId);
+      const rawId = callerUserId ? String(callerUserId).trim() : '';
+      const existing = findExistingWorkforceRecord(rawId, email, employeeCode);
+      const targetId = existing?.userId || rawId;
       const timestamp = new Date().toISOString();
-      const existing = workforceState.get(id);
 
       const updated: WorkforceRecord = {
-        userId: id,
+        userId: targetId,
         employeeCode: employeeCode || existing?.employeeCode,
         name: name || existing?.name,
         email: email || existing?.email,
@@ -408,19 +429,34 @@ async function startServer() {
         status: existing?.hasLocation ? (existing.speed && existing.speed > 3 ? 'moving' : 'idle') : 'online'
       };
 
-      workforceState.set(id, updated);
+      workforceState.set(targetId, updated);
       persistWorkforceState();
 
-      // Broadcast presence update
+      // Broadcast presence update with full metadata
       const presencePayload = {
-        userId: id,
+        userId: targetId,
+        alternateUserId: rawId !== targetId ? rawId : undefined,
+        employeeCode: updated.employeeCode,
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
         isOnline: true,
         lastSeenAt: timestamp,
-        isSharingLocation: updated.isSharingLocation
+        isSharingLocation: updated.isSharingLocation,
+        latitude: updated.latitude,
+        longitude: updated.longitude,
+        status: updated.status
       };
       await broadcastWorkforceEvent('presence.updated', presencePayload);
 
-      res.json({ success: true, timestamp, record: updated });
+      res.json({
+        success: true,
+        online: true,
+        isOnline: true,
+        userId: targetId,
+        timestamp,
+        record: updated
+      });
     } catch (err: any) {
       console.error('[Heartbeat Error]:', err);
       res.status(500).json({ success: false, error: err?.message || 'Error processing heartbeat' });
@@ -430,35 +466,41 @@ async function startServer() {
   // Explicit Offline / Disconnect Endpoint: Called when employee pauses sharing or logs out
   app.post('/api/presence/offline', async (req, res) => {
     try {
-      const { userId } = req.body || {};
+      const { userId, email, employeeCode } = req.body || {};
       const callerUserId = (req.headers['x-user-id'] as string) || userId;
 
-      if (!callerUserId) {
+      if (!callerUserId && !email && !employeeCode) {
         res.status(400).json({ success: false, error: 'Missing userId in offline payload.' });
         return;
       }
 
-      const id = String(callerUserId);
+      const rawId = callerUserId ? String(callerUserId).trim() : '';
+      const existing = findExistingWorkforceRecord(rawId, email, employeeCode);
+      const targetId = existing?.userId || rawId;
       const timestamp = new Date().toISOString();
-      const existing = workforceState.get(id);
 
       if (existing) {
         existing.isOnline = false;
         existing.isSharingLocation = false;
         existing.status = 'offline';
         existing.lastSeenAt = timestamp;
-        workforceState.set(id, existing);
+        workforceState.set(existing.userId, existing);
         persistWorkforceState();
       }
 
       await broadcastWorkforceEvent('presence.updated', {
-        userId: id,
+        userId: targetId,
+        employeeCode: existing?.employeeCode,
+        name: existing?.name,
+        email: existing?.email,
+        role: existing?.role,
         isOnline: false,
         lastSeenAt: timestamp,
-        isSharingLocation: false
+        isSharingLocation: false,
+        status: 'offline'
       });
 
-      res.json({ success: true, message: 'User presence set to offline.' });
+      res.json({ success: true, online: false, isOnline: false, message: 'User presence set to offline.' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err?.message || 'Error updating offline presence' });
     }

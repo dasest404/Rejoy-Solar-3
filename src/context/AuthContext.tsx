@@ -379,6 +379,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const linkedEmp = employees.find(
       e => (e.authUid && e.authUid === user.uid) || (e.email && e.email.trim().toLowerCase() === cleanUserEmail)
     );
+    if (linkedEmp && !linkedEmp.authUid) {
+      linkedEmp.authUid = user.uid;
+      try {
+        storageService.saveEmployee(linkedEmp);
+      } catch {
+        // non-blocking
+      }
+    }
     const demoAccount = DEMO_ACCOUNTS.find(d => d.email.toLowerCase() === cleanUserEmail);
 
     const cached = localStorage.getItem(storageKey);
@@ -395,7 +403,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return {
           ...parsed,
-          id: user.uid,
+          id: linkedEmp?.id || parsed.id || user.uid,
+          employeeId: linkedEmp?.employeeCode || parsed.employeeId || linkedEmp?.id || user.uid,
           email: user.email || parsed.email || ''
         };
       } catch {
@@ -423,7 +432,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const profile: UserProfile = {
       id: linkedEmp?.id || user.uid,
-      employeeId: linkedEmp?.employeeCode || linkedEmp?.id,
+      employeeId: linkedEmp?.employeeCode || linkedEmp?.id || user.uid,
       name: isBootstrappedAdmin
         ? 'Lead Administrator'
         : linkedEmp?.name || demoAccount?.name || user.displayName || (user.email ? user.email.split('@')[0] : 'Solar User'),
@@ -688,7 +697,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       if (currentUser?.id) {
-        liveLocationService.sendOffline(currentUser.id).catch(() => {});
+        liveLocationService.sendOffline(currentUser.id, currentUser.email, currentUser.employeeId).catch(() => {});
       }
       if (isFirebaseReady) {
         try {

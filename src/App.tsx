@@ -10,6 +10,7 @@ import { WhatsAppModal } from './components/common/WhatsAppModal';
 import { ImportExportModal } from './components/common/ImportExportModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoginView } from './components/auth/LoginView';
+import { useWorkforcePresence } from './hooks/useWorkforcePresence';
 import { Sun } from 'lucide-react';
 
 // Code-splitting via dynamic imports for optimized Hostinger bundle performance
@@ -130,6 +131,9 @@ const MainLayout: React.FC = () => {
 
 const ProtectedApp: React.FC = () => {
   const { currentUser, isAuthenticated, loading } = useAuth();
+
+  // Automatic employee presence lifecycle
+  useWorkforcePresence(currentUser, isAuthenticated);
 
   // Route URL Synchronization & Protection
   useEffect(() => {

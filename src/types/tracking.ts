@@ -37,9 +37,19 @@ export interface LocationUpdatePayload {
 
 export interface PresenceUpdatePayload {
   userId: string;
+  alternateUserId?: string;
+  employeeCode?: string;
+  name?: string;
+  email?: string;
+  role?: string;
   isOnline: boolean;
   lastSeenAt: string;
   isSharingLocation?: boolean;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  speed?: number;
+  status?: WorkforceLiveStatus;
 }
 
 export interface LiveEmployeeLocation {
